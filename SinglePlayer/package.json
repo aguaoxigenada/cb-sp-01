@@ -2,6 +2,7 @@
   "name": "cb-sp-01",
   "version": "1.0.0",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "vite",
@@ -13,11 +14,18 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "howler": "^2.2.4",
-    "phaser": "^3.88.2",
-    "vite": "^6.2.0"
+    "phaser": "^3.88.2"
   },
   "devDependencies": {
-    "prettier": "^3.6.2"
+    "globals": "^15.14.0",
+    "prettier": "^3.6.2",
+    "typescript": "^5.7.3",
+    "vite": "^6.3.5",
+    "vite-plugin-node-polyfills": "^0.23.0",
+    "vite-tsconfig-paths": "^5.1.4"
+  },
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=11.0.0"
   }
 }
