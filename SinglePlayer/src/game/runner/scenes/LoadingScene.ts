@@ -1,5 +1,5 @@
 
-import dinosaurSheet from "@game/public/assets/animations/dinoSprite.png";
+import dinosaurSheet from "@game/public/assets/animations/dinoSpriteSheet.png";
 
 import Phaser from "phaser";
 
@@ -12,39 +12,40 @@ export default class LoadingScene extends Phaser.Scene {
 		const { width, height } = this.scale;
 
 		// Add loading background image
-		this.add.image(0, 0, "background").setOrigin(0).setDisplaySize(width, height);
+		this.add.image(0, 0, "loadingBackground").setOrigin(0).setDisplaySize(width, height);
 
 		// === Loading Text ===
 		const loadingText = this.add
-			.text(width / 2, height / 2 - 80, "LOADING..", {
-				fontSize: "32px",
+			.text(width / 2, height / 2 - 28, "LOADING..", {
+				fontSize: "26px",
 				fontFamily: '"Press Start 2P", monospace',
-				color: "#ffffff",
+				color: "#000000ff",
 			})
 			.setOrigin(0.5);
 
 		// === Progress Box Border ===
 		const progressBorder = this.add.graphics();
-		progressBorder.lineStyle(4, 0x00aaff, 1);
-		progressBorder.strokeRoundedRect(width / 2 - 160, height / 2 - 25, 320, 50, 12);
+		progressBorder.lineStyle(2, 0x888888, 1); // thinner, gray border
+		progressBorder.strokeRoundedRect(width / 2 - 80, height / 2 - 12, 160, 24, 6);
 
 		// === Progress Fill Bar ===
 		const progressBar = this.add.graphics();
 
 		this.load.on("progress", (value: number) => {
 			progressBar.clear();
-			progressBar.fillStyle(0x00aaff, 1);
-			progressBar.fillRoundedRect(width / 2 - 150, height / 2 - 15, 300 * value, 30, 8);
+			progressBar.fillStyle(0xbbbbbb, 1);
+			progressBar.fillRoundedRect(width / 2 - 75, height / 2 - 8, 150 * value, 16, 4);
 		});
+
 
 		this.load.on("complete", () => {
 			this.tweens.add({
 				targets: [progressBar, progressBorder, loadingText],
 				alpha: 0,
-				duration: 500,
+				duration: 2000,
 				ease: "Power2",
 				onComplete: () => {
-					this.time.delayedCall(200, () => {
+					this.time.delayedCall(1000, () => {
 						this.cameras.main.fadeOut(500, 0, 0, 0);
 						this.cameras.main.once("camerafadeoutcomplete", () => {
 							this.cameras.main.fadeIn(100);
@@ -60,12 +61,12 @@ export default class LoadingScene extends Phaser.Scene {
 		});
 
 		// Load assets
-		//this.load.image("loadingBackground", loadingBackground);
 		//this.load.audio("buttonPress", [buttonPressOgg, buttonPressWav]);
 		this.load.spritesheet("dinosaurSheet", dinosaurSheet, {
-		frameWidth: 68,
-		frameHeight: 17,
+			frameWidth: 68,
+			frameHeight: 17,
 		});
+		
 
 		//this.load.audio("gamePlaySong_1", song_1);
 		

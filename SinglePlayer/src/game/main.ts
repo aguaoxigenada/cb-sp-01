@@ -1,7 +1,7 @@
 import { Game, Types } from "phaser";
 import RunnerScene from "./runner/scenes/RunnerScene";
 import LoadingScene from "./runner/scenes/LoadingScene";
-
+import BootScene from "./runner/scenes/BootScene";
 
 const config: Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -28,7 +28,7 @@ const config: Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [RunnerScene, LoadingScene],
+  scene: [BootScene, LoadingScene, RunnerScene,],
 };
 
 interface GameStartConfig {
@@ -40,3 +40,5 @@ const StartGame = (parent: GameStartConfig["parent"]): Game => {
 };
 
 export default StartGame;
+
+StartGame('game-container');

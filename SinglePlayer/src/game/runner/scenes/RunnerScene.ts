@@ -8,46 +8,39 @@ export default class RunnerScene extends Phaser.Scene {
   private scoreText!: Phaser.GameObjects.Text;
   private gameSpeed: number = 200;
   private walletAddress: string = "0x123...";
+  private isGameOver: boolean = false;
 
   constructor() {
     super("RunnerScene");
   }
 
-  preload() {
-    this.load.image("ground", "assets/ground.png");
-    this.load.image("cactus", "assets/cactus.png");
-    this.load.spritesheet("player", "assets/player.png", {
-      frameWidth: 32,
-      frameHeight: 32,
-    });
-  }
-
   create() {
-    this.physics.world.setBounds(0, 0, 800, 600);
+    const { width, height } = this.scale;
+
+    this.physics.world.setBounds(0, 0, width, height);
     this.cursors = this.input.keyboard!.createCursorKeys();
 
-    // Ground
-    this.add.tileSprite(0, 568, 800, 32, "ground").setOrigin(0, 0);
-
-    // Player
-    this.player = this.physics.add.sprite(100, 500, "player");
+    // Create player as a simple colored box
+    this.player = this.physics.add.sprite(100, height - 40, "")
+      .setDisplaySize(20, 20)
+      .setTint(0xffffff);
     this.player.setCollideWorldBounds(true);
     this.player.setGravityY(800);
 
-    this.anims.create({
-      key: "run",
-      frames: this.anims.generateFrameNumbers("player", { start: 0, end: 3 }),
-      frameRate: 10,
-      repeat: -1,
-    });
+    // Score text (top-right)
+    this.scoreText = this.add.text(width - 20, 10, "Score: 0", {
+      fontSize: "16px",
+      color: "#ffffff",
+    }).setOrigin(1, 0); // Align right-top
 
-    this.player.play("run");
+    // Ground platform (invisible)
+    const ground = this.physics.add.staticGroup();
+    ground.create(width / 2, height - 10, "")
+      .setDisplaySize(width, 20)
+      .setVisible(false)
+      .refreshBody();
 
-    // Score
-    this.scoreText = this.add.text(16, 16, "Score: 0", {
-      fontSize: "20px",
-      color: "#fff",
-    });
+    this.physics.add.collider(this.player, ground);
 
     // Obstacles
     this.obstacles = this.physics.add.group();
@@ -69,50 +62,64 @@ export default class RunnerScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number) {
-    // Jump
+    if (this.isGameOver) return;
+
+    // Controls
     if (
       Phaser.Input.Keyboard.JustDown(this.cursors.space) ||
       Phaser.Input.Keyboard.JustDown(this.cursors.up)
     ) {
-    if (this.player.body?.touching.down) {
-      this.player.setVelocityY(-450);
+      if (this.player.body?.touching.down) {
+        this.player.setVelocityY(-400);
+      }
     }
-   }
 
-    // Duck
     if (this.cursors.down.isDown) {
       this.player.setVelocityY(600);
     }
 
-    // Score
+    // Update score
     this.score += delta * 0.01;
     this.scoreText.setText("Score: " + Math.floor(this.score));
 
     // Move obstacles
     this.obstacles.children.iterate((child) => {
-      const obs = child as Phaser.Physics.Arcade.Sprite;
-      obs.x -= this.gameSpeed * (delta / 1000);
-      if (obs.x < -obs.width) obs.destroy();
-      return null;
-    });
+    const obs = child as Phaser.Physics.Arcade.Sprite;
+    if (!obs || !obs.active) return; // 🛡 prevent crash
+
+    obs.x -= this.gameSpeed * (delta / 1000);
+    if (obs.x < -obs.width) obs.destroy();
+    return null;
+
+});
+
   }
 
-private spawnObstacle() {
-  const obstacle = this.obstacles.create(800, 520, "cactus") as Phaser.Physics.Arcade.Sprite;
-  obstacle.setImmovable(true);
+  private spawnObstacle() {
+    const { width, height } = this.scale;
+    const obstacle = this.obstacles.create(width + 20, height - 30, "")
+      .setDisplaySize(20, 20)
+      .setTint(0x888888);
+    obstacle.setImmovable(true);
+    (obstacle.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
+  }
 
-  // Correct way:
-  obstacle.body && (obstacle.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
-}
+  private handleGameOver = () => {
+    if (this.isGameOver) return;
+    this.isGameOver = true;
 
-
-  private handleGameOver() {
     this.physics.pause();
     this.player.setTint(0xff0000);
-    this.scoreText.setText(
-      `GAME OVER\nScore: ${Math.floor(this.score)}\nWallet: ${this.walletAddress}`
-    );
 
-    // TODO: Send score to backend API with walletAddress
+    const { width, height } = this.scale;
+    this.add.text(width / 2, height / 2, `GAME OVER\nScore: ${Math.floor(this.score)}`, {
+      fontSize: "20px",
+      color: "#ffffff",
+      align: "center",
+    }).setOrigin(0.5);
+
+    this.time.delayedCall(2000, () => {
+      this.scene.restart();
+    });
   }
 }
