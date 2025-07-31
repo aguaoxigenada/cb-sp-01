@@ -193,7 +193,7 @@ export default class RunnerScene extends Phaser.Scene {
 
     const obstacle = this.obstacles.create(width + 20, 0, "")
       .setDisplaySize(20, 20)
-      .setTint(type === 0 ? 0x888888 : 0xffaaaa); // gray for ground, pink for flying
+      .setTint(type === 0 ? 0x888888 : 0xffaaaa);
 
     obstacle.setImmovable(true);
     (obstacle.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
@@ -204,7 +204,7 @@ export default class RunnerScene extends Phaser.Scene {
       obstacle.setY(height - 30);
     } else {
       // Flying obstacle
-      obstacle.setY(height - 60); // appears above ducking zone
+      obstacle.setY(height - 60); 
     }
   }
 

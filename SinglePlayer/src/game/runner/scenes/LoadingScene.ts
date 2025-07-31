@@ -19,7 +19,7 @@ export default class LoadingScene extends Phaser.Scene {
 		// Add loading background image
 		this.add.image(0, 0, "loadingBackground").setOrigin(0).setDisplaySize(width, height);
 
-		this.load.image("ground", groundImage); // imported from your path
+		this.load.image("ground", groundImage);
 
 		// === Loading Text ===
 		const loadingText = this.add
@@ -32,7 +32,7 @@ export default class LoadingScene extends Phaser.Scene {
 
 		// === Progress Box Border ===
 		const progressBorder = this.add.graphics();
-		progressBorder.lineStyle(2, 0x888888, 1); // thinner, gray border
+		progressBorder.lineStyle(2, 0x888888, 1);
 		progressBorder.strokeRoundedRect(width / 2 - 80, height / 2 - 12, 160, 24, 6);
 
 		// === Progress Fill Bar ===
@@ -68,7 +68,6 @@ export default class LoadingScene extends Phaser.Scene {
 		});
 
 		// Load assets
-		//this.load.audio("buttonPress", [buttonPressOgg, buttonPressWav]);
 		this.load.spritesheet("dinosaurSheet", dinosaurSheet, {
 			frameWidth: 68,
 			frameHeight: 17,
