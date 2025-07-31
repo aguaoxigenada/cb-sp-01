@@ -12,6 +12,9 @@ export default class RunnerScene extends Phaser.Scene {
   private isDucking: boolean = false;
   private obstacleTimer!: Phaser.Time.TimerEvent;
   private ground!: Phaser.GameObjects.TileSprite;
+  private hiScore: number = 0;
+  private hiScoreText: Phaser.GameObjects.Text;
+  private milestoneCheckpoint: number = 0;
 
 
   constructor() {
@@ -36,7 +39,7 @@ export default class RunnerScene extends Phaser.Scene {
     this.gameSpeed = 200;
 
     // Create player as a simple colored box
-    this.player = this.physics.add.sprite(100, height - 50, "")
+    this.player = this.physics.add.sprite(20, height - 50, "")
       .setTint(0xffffff);
     this.player.setDisplaySize(20, 40);
     this.player.body.setSize(20, 40);
@@ -45,10 +48,27 @@ export default class RunnerScene extends Phaser.Scene {
 
 
     // Score text (top-right)
-    this.scoreText = this.add.text(width - 20, 10, "Score: 0", {
+    this.scoreText = this.add.text(this.scale.width - 20, 10, this.formatScore(this.score), {
       fontSize: "16px",
       color: "#808080ff",
     }).setOrigin(1, 0); // Align right-top
+
+
+    // Load Hi Score from localStorage
+    const savedScore = localStorage.getItem("hiScore");
+    this.hiScore = savedScore ? parseInt(savedScore, 10) : 0;
+    this.milestoneCheckpoint = 0;
+
+    this.add.text(width - 180, 10, "HI", {
+      fontSize: "16px",
+      color: "#aaaaaa",
+    });
+
+    this.hiScoreText = this.add.text(width - 150, 10, this.formatScore(this.hiScore), {
+      fontSize: "16px",
+      color: "#808080ff",
+    });
+
 
     // Ground platform (invisible)
     const groundHeight = 20;
@@ -130,7 +150,22 @@ export default class RunnerScene extends Phaser.Scene {
     }
     // Update score
     this.score += delta * 0.01;
-    this.scoreText.setText("Score: " + Math.floor(this.score));
+    const currentRoundedScore = Math.floor(this.score);
+    this.scoreText.setText(this.formatScore(Math.floor(currentRoundedScore)));
+
+    // Update milestone + blink
+    if (currentRoundedScore >= this.milestoneCheckpoint + 100) {
+      this.milestoneCheckpoint = Math.floor(currentRoundedScore / 100) * 100;
+
+      this.tweens.add({
+        targets: this.scoreText,
+        alpha: 0,
+        yoyo: true,
+        duration: 100,
+        repeat: 2,
+      });
+    }
+
 
     // Move obstacles
     this.obstacles.children.iterate((child) => {
@@ -180,8 +215,19 @@ export default class RunnerScene extends Phaser.Scene {
       align: "center",
     }).setOrigin(0.5);
 
+    if (this.score > this.hiScore) {
+      this.hiScore = Math.floor(this.score);
+      this.hiScoreText.setText(this.formatScore(this.hiScore));
+      localStorage.setItem("hiScore", this.hiScore.toString());
+    }
+
     this.time.delayedCall(2000, () => {
       this.scene.restart();
     });
   }
+
+  private formatScore(score: number): string {
+    return score.toString().padStart(5, "0");
+  }
+
 }
