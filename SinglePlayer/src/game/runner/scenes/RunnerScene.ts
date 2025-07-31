@@ -1,4 +1,3 @@
-import { groupEnd } from "console";
 import Phaser from "phaser";
 
 export default class RunnerScene extends Phaser.Scene {
@@ -12,6 +11,8 @@ export default class RunnerScene extends Phaser.Scene {
   private isGameOver: boolean = false;
   private isDucking: boolean = false;
   private obstacleTimer!: Phaser.Time.TimerEvent;
+  private ground!: Phaser.GameObjects.TileSprite;
+
 
   constructor() {
     super("RunnerScene");
@@ -19,6 +20,12 @@ export default class RunnerScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.scale;
+
+    this.cameras.main.setBackgroundColor("#f4f4f4"); // or any other color like "#ffffff"
+
+    this.ground = this.add.tileSprite(0, 120, 1200, 12, "ground")
+    .setOrigin(0, 0)
+    .setScrollFactor(0);
 
     this.physics.world.setBounds(0, 0, width, height);
     this.cursors = this.input.keyboard!.createCursorKeys();
@@ -40,7 +47,7 @@ export default class RunnerScene extends Phaser.Scene {
     // Score text (top-right)
     this.scoreText = this.add.text(width - 20, 10, "Score: 0", {
       fontSize: "16px",
-      color: "#ffffff",
+      color: "#808080ff",
     }).setOrigin(1, 0); // Align right-top
 
     // Ground platform (invisible)
@@ -51,9 +58,9 @@ export default class RunnerScene extends Phaser.Scene {
     ground.create(width / 2, groundY, "")
       .setDisplaySize(width, groundHeight)
       .setVisible(false)
-      .refreshBody()
-      .setVisible(true)
-      .setTint(0x00ff00);
+      .refreshBody();
+     // .setVisible(true)
+    //  .setTint(0x00ff00);
 
 
     this.physics.add.collider(this.player, ground);
@@ -93,6 +100,8 @@ export default class RunnerScene extends Phaser.Scene {
   update(time: number, delta: number) {
     if (this.isGameOver) return;
 
+    this.ground.tilePositionX += this.gameSpeed * (delta / 1000);
+
     // Jump
     if (
       Phaser.Input.Keyboard.JustDown(this.cursors.space) ||
@@ -110,16 +119,14 @@ export default class RunnerScene extends Phaser.Scene {
       this.player.body?.touching.down
     ) {
       this.isDucking = true;
-      //this.player.body.setSize(20, 10);
-      this.player.y += 10; // Half of the height difference
-      
+      this.player.setDisplaySize(20, 20);
     }
 
     // Stand (on key release)
     if (Phaser.Input.Keyboard.JustUp(this.cursors.down) && this.isDucking) {
       this.isDucking = false;
-      //this.player.body.setSize(20, 20);
-      this.player.y -= 20;
+       this.player.y -= 20;
+       this.player.setDisplaySize(20, 40);
     }
     // Update score
     this.score += delta * 0.01;
@@ -169,7 +176,7 @@ export default class RunnerScene extends Phaser.Scene {
     const { width, height } = this.scale;
     this.add.text(width / 2, height / 2, `GAME OVER\nScore: ${Math.floor(this.score)}`, {
       fontSize: "20px",
-      color: "#ffffff",
+      color: "#828282ff",
       align: "center",
     }).setOrigin(0.5);
 

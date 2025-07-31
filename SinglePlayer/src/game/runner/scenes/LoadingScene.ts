@@ -1,5 +1,7 @@
 
 import dinosaurSheet from "@game/public/assets/animations/dinoSpriteSheet.png";
+import groundImage from "@game/public/assets/images/ground.png"; // adjust path accordingly
+
 
 import Phaser from "phaser";
 
@@ -13,6 +15,8 @@ export default class LoadingScene extends Phaser.Scene {
 
 		// Add loading background image
 		this.add.image(0, 0, "loadingBackground").setOrigin(0).setDisplaySize(width, height);
+
+		this.load.image("ground", groundImage); // imported from your path
 
 		// === Loading Text ===
 		const loadingText = this.add
