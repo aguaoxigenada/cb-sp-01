@@ -1,6 +1,9 @@
 
 import dinosaurSheet from "@game/public/assets/animations/dinoSpriteSheet.png";
-import groundImage from "@game/public/assets/images/ground.png"; // adjust path accordingly
+import groundImage from "@game/public/assets/images/ground.png";
+import jumpSound from "@game/public/assets/audio/sfx/jump.wav";
+import scoreSound from "@game/public/assets/audio/sfx/score.wav";
+import gameOverSound from "@game/public/assets/audio/sfx/gameOver.wav";
 
 
 import Phaser from "phaser";
@@ -72,7 +75,8 @@ export default class LoadingScene extends Phaser.Scene {
 		});
 		
 
-		//this.load.audio("gamePlaySong_1", song_1);
-		
+		this.load.audio("jumpSound", jumpSound);
+		this.load.audio("scoreSound", scoreSound);
+		this.load.audio("gameOverSound", gameOverSound);		
 	}
 }

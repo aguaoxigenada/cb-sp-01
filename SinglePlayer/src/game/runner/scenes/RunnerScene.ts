@@ -15,7 +15,9 @@ export default class RunnerScene extends Phaser.Scene {
   private hiScore: number = 0;
   private hiScoreText: Phaser.GameObjects.Text;
   private milestoneCheckpoint: number = 0;
-
+  private jumpSound!: Phaser.Sound.BaseSound;
+  private scoreSound!: Phaser.Sound.BaseSound;
+  private gameOverSound!: Phaser.Sound.BaseSound;
 
   constructor() {
     super("RunnerScene");
@@ -83,6 +85,11 @@ export default class RunnerScene extends Phaser.Scene {
     //  .setTint(0x00ff00);
 
 
+    this.jumpSound = this.sound.add("jumpSound");
+    this.scoreSound = this.sound.add("scoreSound");
+    this.gameOverSound = this.sound.add("gameOverSound");
+
+
     this.physics.add.collider(this.player, ground);
 
      // Obstacles group
@@ -129,6 +136,7 @@ export default class RunnerScene extends Phaser.Scene {
     ) {
       if (this.player.body?.touching.down && !this.isDucking) {
         this.player.setVelocityY(-400);
+        this.jumpSound.play();
       }
     }
 
@@ -156,7 +164,7 @@ export default class RunnerScene extends Phaser.Scene {
     // Update milestone + blink
     if (currentRoundedScore >= this.milestoneCheckpoint + 100) {
       this.milestoneCheckpoint = Math.floor(currentRoundedScore / 100) * 100;
-
+      this.scoreSound.play();
       this.tweens.add({
         targets: this.scoreText,
         alpha: 0,
@@ -220,6 +228,7 @@ export default class RunnerScene extends Phaser.Scene {
       this.hiScoreText.setText(this.formatScore(this.hiScore));
       localStorage.setItem("hiScore", this.hiScore.toString());
     }
+    this.gameOverSound.play();
 
     this.time.delayedCall(2000, () => {
       this.scene.restart();
