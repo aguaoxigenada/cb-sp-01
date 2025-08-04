@@ -110,7 +110,7 @@ export default class RunnerScene extends Phaser.Scene {
 		this.time.addEvent({
 			delay: 10000,
 			callback: () => {
-				this.gameSpeed += 30;
+				this.gameSpeed += 60;
 				const newDelay = Math.max(500, this.obstacleTimer.delay - 100);
 				this.obstacleTimer.remove(false);
 				this.obstacleTimer = this.time.addEvent({
@@ -175,7 +175,16 @@ export default class RunnerScene extends Phaser.Scene {
 			const obs = child as Phaser.Physics.Arcade.Sprite;
 			if (!obs || !obs.active) return;
 
+			// Manually move only if physics doesn't touch it
+			if (obs.body) {
+				const body = obs.body as Phaser.Physics.Arcade.Body;
+				body.setVelocityX(0); // Ensure no physics-driven movement
+				body.moves = false; // Disable physics from updating position
+				body.updateFromGameObject();
+			}
+
 			obs.x -= this.gameSpeed * (delta / 1000);
+
 			if (obs.x < -obs.width) obs.destroy();
 			return null;
 		});
@@ -210,26 +219,32 @@ export default class RunnerScene extends Phaser.Scene {
 	private spawnGroundObstacle() {
 		const { width, height } = this.scale;
 
-		// Always spawn a single obstacle if score < 100 (early game)
 		const isEarlyGame = this.score < 100;
 		const count = isEarlyGame ? 1 : Phaser.Math.Between(1, 3);
-		const spacing = 22; // space between obstacles
+		const spacing = 22;
 
 		for (let i = 0; i < count; i++) {
+			const obstacleHeight = Phaser.Math.RND.pick([20, 40]);
+
 			const obstacle = this.obstacles
 				.create(width + 20 + i * spacing, 0, "")
-				.setDisplaySize(20, 20)
+				.setOrigin(0, 1)
+				.setDisplaySize(20, obstacleHeight)
 				.setTint(0x888888);
 
 			obstacle.setImmovable(true);
-			(obstacle.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
-			obstacle.setY(height - 30);
+			const body = obstacle.body as Phaser.Physics.Arcade.Body;
+			body.setAllowGravity(false);
+			body.setVelocityX(0);
+			body.moves = false;
+			body.updateFromGameObject();
+
+			obstacle.setY(height - 25);
 		}
 	}
 
 	private spawnFlyingObstacle() {
 		const { width, height } = this.scale;
-		// Create a simple flying obstacle
 
 		const type = Phaser.Math.Between(0, 1);
 
@@ -239,20 +254,19 @@ export default class RunnerScene extends Phaser.Scene {
 			.setTint(0xffaaaa);
 
 		obstacle.setImmovable(true);
-		(obstacle.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
+		const body = obstacle.body as Phaser.Physics.Arcade.Body;
+		body.setAllowGravity(false);
+		body.setVelocityX(0);
+		body.moves = false;
+		body.updateFromGameObject();
 
-		// Position obstacle
-		if (type === 0) {
-			obstacle.setY(height - 30);
-		} else {
-			obstacle.setY(height - 60);
-		}
+		obstacle.setY(type === 0 ? height - 30 : height - 60);
 	}
 
 	private spawnMixedObstacle() {
 		const { width, height } = this.scale;
 
-		const type = Phaser.Math.Between(0, 1); // 0 = ground, 1 = flying
+		const type = Phaser.Math.Between(0, 1);
 
 		const obstacle = this.obstacles
 			.create(width + 20, 0, "")
@@ -260,16 +274,13 @@ export default class RunnerScene extends Phaser.Scene {
 			.setTint(type === 0 ? 0x888888 : 0xffaaaa);
 
 		obstacle.setImmovable(true);
-		(obstacle.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
+		const body = obstacle.body as Phaser.Physics.Arcade.Body;
+		body.setAllowGravity(false);
+		body.setVelocityX(0);
+		body.moves = false;
+		body.updateFromGameObject();
 
-		// Position obstacle
-		if (type === 0) {
-			// Ground obstacle
-			obstacle.setY(height - 30);
-		} else {
-			// Flying obstacle
-			obstacle.setY(height - 60);
-		}
+		obstacle.setY(type === 0 ? height - 30 : height - 60);
 	}
 
 	private handleGameOver = () => {
