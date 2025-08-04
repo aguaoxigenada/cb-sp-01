@@ -21,6 +21,9 @@ export default class RunnerScene extends Phaser.Scene {
 	private cursorUp!: Phaser.Input.Keyboard.Key;
 	private cursorDown!: Phaser.Input.Keyboard.Key;
 	private cursorSpace!: Phaser.Input.Keyboard.Key;
+	private isJumping: boolean = false;
+	private jumpHoldTime: number = 0;
+	private maxJumpHold: number = 150; // ms
 
 	constructor() {
 		super("RunnerScene");
@@ -96,8 +99,11 @@ export default class RunnerScene extends Phaser.Scene {
 		this.physics.add.collider(this.player, ground);
 
 		// Obstacles group
-		this.obstacles = this.physics.add.group();
-
+		//this.obstacles = this.physics.add.group();
+		this.obstacles = this.physics.add.group({
+			allowGravity: false,
+			immovable: true,
+		});
 		// Initial obstacle spawn
 		this.obstacleTimer = this.time.addEvent({
 			delay: 1500,
@@ -132,12 +138,32 @@ export default class RunnerScene extends Phaser.Scene {
 
 		this.ground.tilePositionX += this.gameSpeed * (delta / 1000);
 
-		// Jump
-		if (Phaser.Input.Keyboard.JustDown(this.cursorSpace) || Phaser.Input.Keyboard.JustDown(this.cursorUp)) {
-			if (this.player.body?.touching.down && !this.isDucking) {
-				this.player.setVelocityY(-400);
-				this.jumpSound.play();
+		// Start jump
+		if (
+			(Phaser.Input.Keyboard.JustDown(this.cursorSpace) || Phaser.Input.Keyboard.JustDown(this.cursorUp)) &&
+			this.player.body?.touching.down &&
+			!this.isDucking
+		) {
+			this.player.setVelocityY(-300); // smaller initial jump
+			this.jumpSound.play();
+			this.isJumping = true;
+			this.jumpHoldTime = 0;
+		}
+
+		// While jump key is held, add velocity
+		if (this.isJumping && (this.cursorSpace.isDown || this.cursorUp.isDown)) {
+			this.jumpHoldTime += delta;
+			console.log(`Jump hold time: ${this.jumpHoldTime}ms`);
+			if (this.jumpHoldTime < this.maxJumpHold) {
+				this.player.setVelocityY(this.player.body.velocity.y - 10);
+			} else {
+				this.isJumping = false;
 			}
+		}
+
+		// Stop jump when key is released
+		if (Phaser.Input.Keyboard.JustUp(this.cursorSpace) || Phaser.Input.Keyboard.JustUp(this.cursorUp)) {
+			this.isJumping = false;
 		}
 
 		// Ducking logic
@@ -175,17 +201,11 @@ export default class RunnerScene extends Phaser.Scene {
 			const obs = child as Phaser.Physics.Arcade.Sprite;
 			if (!obs || !obs.active) return;
 
-			// Manually move only if physics doesn't touch it
-			if (obs.body) {
-				const body = obs.body as Phaser.Physics.Arcade.Body;
-				body.setVelocityX(0); // Ensure no physics-driven movement
-				body.moves = false; // Disable physics from updating position
-				body.updateFromGameObject();
+			obs.setVelocityX(-this.gameSpeed); // Let physics handle movement
+
+			if (obs.x < -obs.width) {
+				obs.destroy();
 			}
-
-			obs.x -= this.gameSpeed * (delta / 1000);
-
-			if (obs.x < -obs.width) obs.destroy();
 			return null;
 		});
 	}
@@ -232,13 +252,9 @@ export default class RunnerScene extends Phaser.Scene {
 				.setDisplaySize(20, obstacleHeight)
 				.setTint(0x888888);
 
+			obstacle.setVelocityX(-this.gameSpeed);
 			obstacle.setImmovable(true);
-			const body = obstacle.body as Phaser.Physics.Arcade.Body;
-			body.setAllowGravity(false);
-			body.setVelocityX(0);
-			body.moves = false;
-			body.updateFromGameObject();
-
+			obstacle.body.setAllowGravity(false);
 			obstacle.setY(height - 25);
 		}
 	}
@@ -253,12 +269,9 @@ export default class RunnerScene extends Phaser.Scene {
 			.setDisplaySize(20, 20)
 			.setTint(0xffaaaa);
 
+		obstacle.setVelocityX(-this.gameSpeed);
 		obstacle.setImmovable(true);
-		const body = obstacle.body as Phaser.Physics.Arcade.Body;
-		body.setAllowGravity(false);
-		body.setVelocityX(0);
-		body.moves = false;
-		body.updateFromGameObject();
+		obstacle.body.setAllowGravity(false);
 
 		obstacle.setY(type === 0 ? height - 30 : height - 60);
 	}
@@ -273,12 +286,9 @@ export default class RunnerScene extends Phaser.Scene {
 			.setDisplaySize(20, 20)
 			.setTint(type === 0 ? 0x888888 : 0xffaaaa);
 
+		obstacle.setVelocityX(-this.gameSpeed);
 		obstacle.setImmovable(true);
-		const body = obstacle.body as Phaser.Physics.Arcade.Body;
-		body.setAllowGravity(false);
-		body.setVelocityX(0);
-		body.moves = false;
-		body.updateFromGameObject();
+		obstacle.body.setAllowGravity(false);
 
 		obstacle.setY(type === 0 ? height - 30 : height - 60);
 	}
