@@ -18,6 +18,9 @@ export default class RunnerScene extends Phaser.Scene {
   private jumpSound!: Phaser.Sound.BaseSound;
   private scoreSound!: Phaser.Sound.BaseSound;
   private gameOverSound!: Phaser.Sound.BaseSound;
+  private cursorUp!: Phaser.Input.Keyboard.Key;
+  private cursorDown!: Phaser.Input.Keyboard.Key;
+  private cursorSpace!: Phaser.Input.Keyboard.Key;
 
   constructor() {
     super("RunnerScene");
@@ -34,6 +37,11 @@ export default class RunnerScene extends Phaser.Scene {
 
     this.physics.world.setBounds(0, 0, width, height);
     this.cursors = this.input.keyboard!.createCursorKeys();
+    
+    const { up, down, space } = this.cursors;
+    this.cursorUp = up!;
+    this.cursorDown = down!;
+    this.cursorSpace = space!;
 
     this.isGameOver = false;
     this.score = 0;
@@ -57,8 +65,8 @@ export default class RunnerScene extends Phaser.Scene {
 
 
     // Load Hi Score from localStorage
-    const savedScore = localStorage.getItem("hiScore");
-    this.hiScore = savedScore ? parseInt(savedScore, 10) : 0;
+    const highScore = localStorage.getItem("hiScore");
+    this.hiScore = highScore ? parseInt(highScore, 10) : 0;
     this.milestoneCheckpoint = 0;
 
     this.add.text(width - 180, 10, "HI", {
@@ -131,8 +139,8 @@ export default class RunnerScene extends Phaser.Scene {
 
     // Jump
     if (
-      Phaser.Input.Keyboard.JustDown(this.cursors.space) ||
-      Phaser.Input.Keyboard.JustDown(this.cursors.up)
+      Phaser.Input.Keyboard.JustDown(this.cursorSpace) ||
+      Phaser.Input.Keyboard.JustDown(this.cursorUp)
     ) {
       if (this.player.body?.touching.down && !this.isDucking) {
         this.player.setVelocityY(-400);
@@ -142,7 +150,7 @@ export default class RunnerScene extends Phaser.Scene {
 
     // Ducking logic
     if (
-      Phaser.Input.Keyboard.JustDown(this.cursors.down) &&
+      Phaser.Input.Keyboard.JustDown(this.cursorDown) &&
       !this.isDucking &&
       this.player.body?.touching.down
     ) {
@@ -151,7 +159,7 @@ export default class RunnerScene extends Phaser.Scene {
     }
 
     // Stand (on key release)
-    if (Phaser.Input.Keyboard.JustUp(this.cursors.down) && this.isDucking) {
+    if (Phaser.Input.Keyboard.JustUp(this.cursorDown) && this.isDucking) {
       this.isDucking = false;
        this.player.y -= 20;
        this.player.setDisplaySize(20, 40);
@@ -163,7 +171,7 @@ export default class RunnerScene extends Phaser.Scene {
 
     // Update milestone + blink
     if (currentRoundedScore >= this.milestoneCheckpoint + 100) {
-      this.milestoneCheckpoint = Math.floor(currentRoundedScore / 100) * 100;
+      this.milestoneCheckpoint += 100;
       this.scoreSound.play();
       this.tweens.add({
         targets: this.scoreText,
