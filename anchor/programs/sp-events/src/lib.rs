@@ -91,6 +91,11 @@ pub mod sp_events {
         Ok(())
     }
 
+    pub fn submit_score(ctx: Context<SubmitScore>, score: i64) -> Result<()> {
+        ctx.accounts.player.score = score;
+        Ok(())
+    }
+
 
 }
 
@@ -222,6 +227,15 @@ pub struct DepositToPlayer<'info> {
     #[account(mut)]
     pub recipient_token_account: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+#[instruction(_event_id: u8)]
+pub struct SubmitScore<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(mut, seeds = [b"player", player.player_key.key().as_ref(), _event_id.to_le_bytes().as_ref()], bump)]
+    pub player: Account<'info, Player>,
 }
 
 
