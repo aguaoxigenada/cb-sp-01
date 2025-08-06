@@ -238,7 +238,6 @@ pub struct SubmitScore<'info> {
     pub player: Account<'info, Player>,
 }
 
-
 #[event]
 pub struct PlayerJoined {
     pub player: Pubkey,
