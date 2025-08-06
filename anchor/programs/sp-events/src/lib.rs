@@ -13,7 +13,7 @@ pub mod sp_events {
         total_reward: u64,
         start_ts: i64,
         end_ts: i64,
-        event_id: u8,
+        event_id: u128,
     ) -> Result<()> {
         let event_account = &mut ctx.accounts.event_account;
         event_account.authority = *ctx.accounts.authority.key;
@@ -38,12 +38,12 @@ pub mod sp_events {
             CustomError::PlayerAlreadyRegistered
         );
 
-        let game = &mut ctx.accounts.event;
+        let event = &mut ctx.accounts.event;
         let player = &mut ctx.accounts.player;
 
         // Initialize player fields
         player.player_key = ctx.accounts.user.key();
-        player.current_game_event = game.event_id;
+        player.current_game_event = event.event_id;
         player.user_name = user_name.clone();
         player.score = 0;
         player.token_account = ctx.accounts.token_account.key();
@@ -106,7 +106,7 @@ pub struct EventAccount {
     pub start_ts: i64,
     pub end_ts: i64,
     pub is_closed: bool,
-    pub event_id: u8,
+    pub event_id: u128, // Changed to u128 for larger event IDs
 }
 
 impl EventAccount {
@@ -115,7 +115,7 @@ impl EventAccount {
 
 #[account]
 pub struct Player {
-    pub current_game_event: u8,
+    pub current_game_event: u128,
     pub user_name: String, // Anchor requires #[max_len] on strings from 0.30+
     pub score: i64,
     pub token_account: Pubkey,
@@ -125,7 +125,7 @@ pub struct Player {
 #[account]
 pub struct PlayerList {
     pub event_key: Pubkey,
-    pub event_id: u8,
+    pub event_id: u128,
     pub players: Vec<Pubkey>,
 }
 
@@ -135,7 +135,7 @@ pub struct VaultAuthority {
 }
 
 #[derive(Accounts)]
-#[instruction(total_reward: u64, start_ts: i64, end_ts: i64, event_id: u8)]
+#[instruction(total_reward: u64, start_ts: i64, end_ts: i64, event_id: u128)]
 pub struct CreateEvent<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -149,10 +149,10 @@ pub struct CreateEvent<'info> {
     pub event_account: Account<'info, EventAccount>,
     #[account(
         init,
-        seeds = [b"player_list", event_id.to_le_bytes().as_ref()],
+        seeds = [b"player_list", event_id.to_le_bytes().as_ref(), event_account.key().as_ref()],
         bump,
         payer = authority,
-        space = 8 + 32 + 1 + (4 + 200 * 32) // room for 200 players
+        space = 8 + 32 + 1 + (4 + 1000 * 32) // room for 10x00 players
     )]
     pub player_list: Account<'info, PlayerList>,
     pub system_program: Program<'info, System>,
@@ -164,7 +164,7 @@ pub struct VerifyPlayer<'info> {
     pub event: Account<'info, EventAccount>,
     #[account(
         mut,
-        seeds = [b"player_list", event.event_id.to_le_bytes().as_ref()],
+        seeds = [b"player_list", event.event_id.to_le_bytes().as_ref(), event.key().as_ref()],
         bump
     )]
     pub player_list: Account<'info, PlayerList>,
