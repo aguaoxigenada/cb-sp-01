@@ -1,7 +1,6 @@
-use anchor_lang::{prelude::*};
-use anchor_spl::token::{
-    self, Mint, Token, TokenAccount, Transfer as TokenTransfer  // Transfer instruction
-};
+use anchor_lang::prelude::*;
+use anchor_spl::token::{Mint, Token, TokenAccount, Transfer};
+
 declare_id!("37e2LZB4upG4gE9hmfc6YUxqtokBG7wbdYaBhqd3X4F1");
 
 #[program]
@@ -23,44 +22,28 @@ pub mod sp_events {
         event_account.is_closed = false;
         event_account.event_id = event_id;
 
-        let player_list = &mut ctx.accounts.player_list;
-        player_list.event_key = ctx.accounts.event_account.key();
-        player_list.event_id = event_id;
-        player_list.players = Vec::new();
-
         Ok(())
     }
 
     pub fn verify_player(ctx: Context<VerifyPlayer>, user_name: String) -> Result<()> {
-        // Prevent duplicate registration
-        require!(
-            ctx.accounts.player.user_name.is_empty(),
-            CustomError::PlayerAlreadyRegistered
-        );
+    let player = &mut ctx.accounts.player;
 
-        let event = &mut ctx.accounts.event;
-        let player = &mut ctx.accounts.player;
+    require!(
+        player.user_name.is_empty(),
+        CustomError::PlayerAlreadyRegistered
+    );
 
-        // Initialize player fields
-        player.player_key = ctx.accounts.user.key();
-        player.current_game_event = event.event_id;
-        player.user_name = user_name.clone();
-        player.score = 0;
-        player.token_account = ctx.accounts.token_account.key();
+    player.player_key = ctx.accounts.user.key();
+    player.current_game_event = ctx.accounts.event.event_id;
+    player.user_name = user_name.clone();
+    player.score = 0;
+    player.token_account = ctx.accounts.token_account.key();
 
-        let player_list = &mut ctx.accounts.player_list;
-
-        require!(
-            !player_list.players.contains(&player.key()),
-            CustomError::PlayerAlreadyJoined
-        );
-
-        player_list.players.push(player.key());
-
-        emit!(PlayerJoined {
-            player: player.player_key,
-            total_players: player_list.players.len() as u64,
-        });
+    emit!(PlayerJoined {
+        player: player.player_key,
+        event_id: player.current_game_event,
+        user_name: player.user_name.clone(),
+    });
 
         Ok(())
     }
@@ -74,7 +57,7 @@ pub mod sp_events {
         amount: u64,
     ) -> Result<()> {
         let binding = ctx.accounts.event.key();
-        let seeds = &[b"vault", binding.as_ref(), &[ctx.bumps.vault_authority]];
+        let seeds = &[b"vault_authority", binding.as_ref(), &[ctx.bumps.vault_authority]];
         let signer = &[&seeds[..]];
 
         let cpi_ctx = CpiContext::new_with_signer(
@@ -93,6 +76,11 @@ pub mod sp_events {
 
     pub fn submit_score(ctx: Context<SubmitScore>, score: i64) -> Result<()> {
         ctx.accounts.player.score = score;
+        emit!(ScoreSubmitted {
+            player: ctx.accounts.player.player_key,
+            event_id: ctx.accounts.player.current_game_event,
+            score: ctx.accounts.player.score,
+        });
         Ok(())
     }
 
@@ -110,29 +98,17 @@ pub struct EventAccount {
 }
 
 impl EventAccount {
-    pub const LEN: usize = 32 + 8 + 8 + 8 + 1 + 1;
-}
+    pub const LEN: usize = 32 + 8 + 8 + 8 + 1 + 16;}
 
 #[account]
 pub struct Player {
-    pub current_game_event: u128,
-    pub user_name: String, // Anchor requires #[max_len] on strings from 0.30+
-    pub score: i64,
-    pub token_account: Pubkey,
-    pub player_key: Pubkey,
+    pub current_game_event: u128,     // 16 bytes
+    pub user_name: String,            // 4 + max length (e.g., 32)
+    pub score: i64,                   // 8 bytes
+    pub token_account: Pubkey,        // 32 bytes
+    pub player_key: Pubkey,           // 32 bytes
 }
 
-#[account]
-pub struct PlayerList {
-    pub event_key: Pubkey,
-    pub event_id: u128,
-    pub players: Vec<Pubkey>,
-}
-
-#[account]
-pub struct VaultAuthority {
-    pub authority: Pubkey,  
-}
 
 #[derive(Accounts)]
 #[instruction(total_reward: u64, start_ts: i64, end_ts: i64, event_id: u128)]
@@ -147,14 +123,6 @@ pub struct CreateEvent<'info> {
         space = 8 + EventAccount::LEN
     )]
     pub event_account: Account<'info, EventAccount>,
-    #[account(
-        init,
-        seeds = [b"player_list", event_id.to_le_bytes().as_ref(), event_account.key().as_ref()],
-        bump,
-        payer = authority,
-        space = 8 + 32 + 1 + (4 + 1000 * 32) // room for 10x00 players
-    )]
-    pub player_list: Account<'info, PlayerList>,
     pub system_program: Program<'info, System>,
 }
 
@@ -162,20 +130,16 @@ pub struct CreateEvent<'info> {
 pub struct VerifyPlayer<'info> {
     #[account(mut)]
     pub event: Account<'info, EventAccount>,
-    #[account(
-        mut,
-        seeds = [b"player_list", event.event_id.to_le_bytes().as_ref(), event.key().as_ref()],
-        bump
-    )]
-    pub player_list: Account<'info, PlayerList>,
+
     #[account(
         init,
         payer = user,
         seeds = [b"player", user.key().as_ref(), event.event_id.to_le_bytes().as_ref()],
         bump,
-        space = 8 + 1 + (4 + 32) + 8 + 32 + 32
+        space = 8 + 16 + (4 + 32) + 8 + 32 + 32 // event_id + user_name + score + keys
     )]
     pub player: Account<'info, Player>,
+
     pub token_account: Account<'info, TokenAccount>,
     #[account(mut)]
     pub user: Signer<'info>,
@@ -192,7 +156,8 @@ pub struct InitializeVault<'info> {
         seeds = [b"vault_authority", event.key().as_ref()],
         bump
     )]
-    pub vault_authority: Account<'info, VaultAuthority>,
+    /// CHECK: This PDA is only used for signing. No data is stored here.
+    pub vault_authority: UncheckedAccount<'info>,
     #[account(
         init_if_needed,
         payer = authority,
@@ -223,14 +188,15 @@ pub struct DepositToPlayer<'info> {
         seeds = [b"vault_authority", event.key().as_ref()],
         bump
     )]
-    pub vault_authority: Account<'info, VaultAuthority>,
+    /// CHECK: This PDA is only used for signing. No data is stored here.
+    pub vault_authority: UncheckedAccount<'info>,
     #[account(mut)]
     pub recipient_token_account: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
 }
 
 #[derive(Accounts)]
-#[instruction(_event_id: u8)]
+#[instruction(_event_id: u128)]
 pub struct SubmitScore<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -241,7 +207,15 @@ pub struct SubmitScore<'info> {
 #[event]
 pub struct PlayerJoined {
     pub player: Pubkey,
-    pub total_players: u64,
+    pub event_id: u128,
+    pub user_name: String,
+}
+
+#[event]
+pub struct ScoreSubmitted {
+    pub player: Pubkey,
+    pub event_id: u128,
+    pub score: i64,
 }
 
 #[error_code]

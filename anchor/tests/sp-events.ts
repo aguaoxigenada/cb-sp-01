@@ -1,5 +1,6 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
+import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
 import { SpEvents } from "../target/types/sp_events";
 import {
   TOKEN_PROGRAM_ID,
@@ -9,27 +10,30 @@ import {
   MintLayout,
   mintTo,
 } from "@solana/spl-token";
+import { createTransferInstruction } from "@solana/spl-token";
 import { assert } from "chai";
 import { Buffer } from "buffer";
 
 describe("sp_events", () => {
-  const provider = anchor.AnchorProvider.env(); // Esto deberia ser la local de momento.
+  const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
   const program = anchor.workspace.SpEvents as Program<SpEvents>;
 
   const authority = provider.wallet;
-  let mint: anchor.web3.Keypair;
-  let payerTokenAccount: anchor.web3.PublicKey;
-  let vault: anchor.web3.PublicKey;
-  let vaultAuthority: anchor.web3.PublicKey;
-  let event: anchor.web3.PublicKey;
-  let playerList: anchor.web3.PublicKey;
-  let player: anchor.web3.PublicKey;
+  let mint: Keypair;
+  let payerTokenAccount: PublicKey;
+  let vault: PublicKey;
+  let vaultAuthority: PublicKey;
+  let event: PublicKey;
+  let playerList: PublicKey;
+  let player: PublicKey;
 
   const eventId = new anchor.BN(1);
   const totalReward = new anchor.BN(1000);
   const startTs = new anchor.BN(Math.floor(Date.now() / 1000));
   const endTs = new anchor.BN(startTs.toNumber() + 3600);
+
+  const mintA = new PublicKey("2PHq92eDkKEDRNZnzmXk7xWB1kmQJiyAhC986i6cvp1Y"); // Example mint address for DEV
 
   before(async () => {
     mint = anchor.web3.Keypair.generate();
@@ -74,7 +78,7 @@ describe("sp_events", () => {
   });
 
   it("creates an event and vault", async () => {
-    [event] = await anchor.web3.PublicKey.findProgramAddress(
+    [event] = await PublicKey.findProgramAddressSync(
       [
         Buffer.from("event"),
         authority.publicKey.toBuffer(),
@@ -82,39 +86,30 @@ describe("sp_events", () => {
       ],
       program.programId
     );
-    [playerList] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from("player_list"),
-        eventId.toArrayLike(Buffer, "le", 16),
-        event.toBuffer(),
-      ],
-      program.programId
-    );
-    [vaultAuthority] = await anchor.web3.PublicKey.findProgramAddress(
+    [vaultAuthority] = await PublicKey.findProgramAddressSync(
       [Buffer.from("vault_authority"), event.toBuffer()],
       program.programId
     );
-    [vault] = await anchor.web3.PublicKey.findProgramAddress(
+    [vault] = await PublicKey.findProgramAddressSync(
       [Buffer.from("vault"), event.toBuffer()],
       program.programId
     );
 
+    console.log("Event:", event.toBase58());
     await program.methods
       .createEvent(totalReward, startTs, endTs, eventId)
       .accounts({
         authority: authority.publicKey,
         eventAccount: event,
-        playerList: playerList,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
 
+    console.log("Event created");
+
     const evt = await program.account.eventAccount.fetch(event);
     assert.ok(evt.totalReward.eq(totalReward));
     assert.equal(evt.eventId.toString(), eventId.toString());
-
-    const pl = await program.account.playerList.fetch(playerList);
-    assert.equal(pl.players.length, 0);
   });
 
   it("initializes vault PDA", async () => {
@@ -134,11 +129,22 @@ describe("sp_events", () => {
 
     const acc = await provider.connection.getAccountInfo(vault);
     assert.ok(acc !== null, "Vault account should exist");
+
+    const tx = new anchor.web3.Transaction().add(
+      createTransferInstruction(
+        payerTokenAccount, // from
+        vault, // to (vault PDA)
+        authority.publicKey, // authority
+        1000 // amount
+      )
+    );
+
+    await provider.sendAndConfirm(tx, [authority.payer]);
   });
 
   it("registers and deposits for player", async () => {
     const userName = "alice";
-    [player] = await anchor.web3.PublicKey.findProgramAddress(
+    [player] = await PublicKey.findProgramAddressSync(
       [
         Buffer.from("player"),
         authority.publicKey.toBuffer(),
@@ -151,7 +157,6 @@ describe("sp_events", () => {
       .verifyPlayer(userName)
       .accounts({
         event,
-        playerList,
         player,
         tokenAccount: payerTokenAccount,
         user: authority.publicKey,
@@ -160,9 +165,9 @@ describe("sp_events", () => {
       })
       .rpc();
 
-    const pl = await program.account.playerList.fetch(playerList);
-    assert.equal(pl.players.length, 1);
-    assert.deepEqual(pl.players[0].toBase58(), player.toBase58());
+    const playerAcc = await program.account.player.fetch(player);
+    assert.equal(playerAcc.userName, userName);
+    assert.equal(playerAcc.score.toString(), "0");
 
     const depositAmount = new anchor.BN(500);
     await program.methods
@@ -171,12 +176,15 @@ describe("sp_events", () => {
         event,
         vault,
         vaultAuthority,
-        recipientTokenAccount: payerTokenAccount,
+        recipientTokenAccount: playerAcc.tokenAccount,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
       .rpc();
 
-    const updated = await getAccount(provider.connection, payerTokenAccount);
-    assert.ok(updated.amount.gte(new anchor.BN(2500))); // 2000 initial + 500 deposit
+    const updated = await getAccount(
+      provider.connection,
+      playerAcc.tokenAccount
+    );
+    assert.ok(updated.amount >= BigInt(500));
   });
 });
