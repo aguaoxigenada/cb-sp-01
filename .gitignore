@@ -1,0 +1,13 @@
+.anchor
+.DS_Store
+target
+**/*.rs.bk
+node_modules
+test-ledger
+.yarn
+yarn.lock
+dist
+.env
+.google_access_token.json
+*Zone.Identifier
+**/*.env.*
