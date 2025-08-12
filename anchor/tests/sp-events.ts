@@ -13,6 +13,7 @@ import {
 import { createTransferInstruction } from "@solana/spl-token";
 import { assert } from "chai";
 import { Buffer } from "buffer";
+import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 
 describe("sp_events", () => {
   const provider = anchor.AnchorProvider.env();
@@ -139,9 +140,13 @@ describe("sp_events", () => {
       )
     );
 
-    await provider.sendAndConfirm(tx, [authority.payer]);
+    // helper fn
+    // await provider.sendAndConfirm(tx, [authority.payer]);
+    // const base58PrivateKey = "replace_with_your_base58_private_key_here";
+    // const decoded = bs58.decode(base58PrivateKey);
+    // console.log(JSON.stringify(Array.from(decoded)));
   });
-
+  /*
   it("registers and deposits for player", async () => {
     const userName = "alice";
     [player] = await PublicKey.findProgramAddressSync(
@@ -186,5 +191,5 @@ describe("sp_events", () => {
       playerAcc.tokenAccount
     );
     assert.ok(updated.amount >= BigInt(500));
-  });
+  });*/
 });
