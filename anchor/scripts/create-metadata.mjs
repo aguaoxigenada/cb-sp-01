@@ -57,13 +57,13 @@ try {
     collectionDetails: null,
   }).sendAndConfirm(umi);
 
-  console.log("✅ Metadata created. Tx signature:", tx.signature);
+  console.log("Metadata created. Tx signature:", tx.signature);
 } catch (e) {
   const msg = String(e).toLowerCase();
   if (msg.includes("already in use") || msg.includes("already initialized")) {
     console.log("ℹ️ Metadata already exists for this mint.");
   } else {
-    console.error("❌ Failed to create metadata:", e);
+    console.error("Failed to create metadata:", e);
     process.exit(1);
   }
 }
