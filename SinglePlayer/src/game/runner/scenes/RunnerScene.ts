@@ -1,6 +1,24 @@
 import Phaser from "phaser";
 
 export default class RunnerScene extends Phaser.Scene {
+
+	preload() {
+		for (let i = 1; i <= 8; i++) {
+			this.load.image(`dino_run_${i}`, `assets/images/character/running/running${i}.png`);
+			this.load.image(`dino_duck_${i}`, `assets/images/character/crouching/crouching${i}.png`);
+			this.load.image(`dino_jump_${i}`, `assets/images/character/jump/jump${i}.png`);
+		}
+		for (let i = 1; i <= 7; i++) {
+			this.load.image(`dino_death_${i}`, `assets/images/character/death/death${i}.png`);
+		}
+	this.load.image('groundHazard1', 'assets/images/hazards/groundHazard1.png');
+	this.load.image('groundHazard2', 'assets/images/hazards/groundHazard2.png');
+	this.load.image('flyingHazard1', 'assets/images/hazards/flyingHazard1.png');
+		this.load.image('parallax_bg', 'assets/images/parallaxBackground1.png');
+		this.load.image('parallax_bg2', 'assets/images/parallaxBackground2.png');
+		this.load.image('groundBackground', 'assets/images/groundBackground.png');
+		this.load.image('skyBackground', 'assets/images/skyBackground.png');
+	}
 	private player!: Phaser.Physics.Arcade.Sprite;
 	private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
 	private obstacles!: Phaser.Physics.Arcade.Group;
@@ -29,12 +47,28 @@ export default class RunnerScene extends Phaser.Scene {
 		super("RunnerScene");
 	}
 
-	create() {
+  resizeGame(gameSize: { width: number; height: number }) {
+    const baseWidth = 600; 
+    const baseHeight = 150;
+    const scaleX = gameSize.width / baseWidth;
+    const scaleY = gameSize.height / baseHeight;
+    const scale = Math.min(scaleX, scaleY);
+
+    this.cameras.main.setZoom(scale);
+
+    }
+	create() {    
+		this.scale.on('resize', this.resizeGame, this);
+    	this.resizeGame({ width: this.scale.width, height: this.scale.height });
+  
 		const { width, height } = this.scale;
+		this.sky= this.add.tileSprite(0, 0, width, height, 'skyBackground').setOrigin(0, 0).setScrollFactor(0);
+		this.bg = this.add.tileSprite(0, 0, width, height, 'parallax_bg').setOrigin(0, 0).setScrollFactor(0);
+		
+		//this.cameras.main.setBackgroundColor("#f4f4f4");
 
-		this.cameras.main.setBackgroundColor("#f4f4f4"); // or any other color like "#ffffff"
-
-		this.ground = this.add.tileSprite(0, 120, 1200, 12, "ground").setOrigin(0, 0).setScrollFactor(0);
+		
+		this.ground = this.add.tileSprite(0, 0, width, height, "groundBackground").setOrigin(0, 0).setScrollFactor(0);
 
 		this.physics.world.setBounds(0, 0, width, height);
 		this.cursors = this.input.keyboard!.createCursorKeys();
@@ -49,38 +83,107 @@ export default class RunnerScene extends Phaser.Scene {
 		this.physics.resume();
 		this.gameSpeed = 200;
 
-		// Create player as a simple colored box
-		this.player = this.physics.add.sprite(20, height - 50, "").setTint(0xffffff);
-		this.player.setDisplaySize(20, 40);
-		this.player.body.setSize(20, 40);
-		this.player.setCollideWorldBounds(true);
-		this.player.setGravityY(800);
-
-		// Score text (top-right)
-		this.scoreText = this.add
-			.text(this.scale.width - 20, 10, this.formatScore(this.score), {
-				fontSize: "16px",
-				color: "#808080ff",
-			})
-			.setOrigin(1, 0); // Align right-top
-
-		// Load Hi Score from localStorage
-		const highScore = localStorage.getItem("hiScore");
-		this.hiScore = highScore ? parseInt(highScore, 10) : 0;
-		this.milestoneCheckpoint = 0;
-
-		this.add.text(width - 180, 10, "HI", {
-			fontSize: "16px",
-			color: "#aaaaaa",
+		const runFrames = [];
+		for (let i = 1; i <= 8; i++) {
+			runFrames.push({ key: `dino_run_${i}` });
+		}
+		this.anims.create({
+			key: 'run',
+			frames: runFrames,
+			frameRate: 10,
+			repeat: -1
 		});
 
-		this.hiScoreText = this.add.text(width - 150, 10, this.formatScore(this.hiScore), {
-			fontSize: "16px",
-			color: "#808080ff",
+		const duckFrames = [];
+		for (let i = 1; i <= 8; i++) {
+			duckFrames.push({ key: `dino_duck_${i}` });
+		}
+		this.anims.create({
+			key: 'duck',
+			frames: duckFrames,
+			frameRate: 10,
+			repeat: -1
 		});
+
+		const deathFrames = [];
+		for (let i = 1; i <= 8; i++) {
+			deathFrames.push({ key: `dino_death_${i}` });
+		}
+		this.anims.create({
+			key: 'death',
+			frames: deathFrames,
+			frameRate: 10,
+			repeat: 0
+		});
+
+		const jumpUpFrames = [];
+		for (let i = 1; i <= 4; i++) {
+			jumpUpFrames.push({ key: `dino_jump_${i}` });
+		}
+		this.anims.create({
+			key: 'jump_up',
+			frames: jumpUpFrames,
+			frameRate: 10,
+			repeat: 0
+		});
+
+		const jumpDownFrames = [];
+		for (let i = 5; i <= 8; i++) {
+			jumpDownFrames.push({ key: `dino_jump_${i}` });
+		}
+		this.anims.create({
+			key: 'jump_down',
+			frames: jumpDownFrames,
+			frameRate: 10,
+			repeat: 0
+		});
+
+	this.player = this.physics.add.sprite(50, 0, 'dino_run_1');
+	this.player.setOrigin(0.5, 1);
+	this.player.setScale(1);
+	this.player.body.setSize(48, 56);
+	this.player.body.setOffset(30, 5);
+	this.player.setCollideWorldBounds(true);
+	this.player.setGravityY(800);
+	this.player.play('run');
+	this.player.setDepth(10);
+
+	const scoreBgWidth = 180;
+	const scoreBgHeight = 28;
+	const scoreBgX = width - scoreBgWidth-10;
+	const scoreBgY = 6;
+	this.add.rectangle(scoreBgX, scoreBgY, scoreBgWidth, scoreBgHeight, 0xffffff, 1)
+	  .setOrigin(0, 0)
+	  .setDepth(1);
+
+	// Score text (top-right)
+	this.scoreText = this.add
+	  .text(width - 20, 10, this.formatScore(this.score), {
+		fontSize: "16px",
+		color: "#222",
+		fontStyle: "bold"
+	  })
+	  .setOrigin(1, 0)
+	  .setDepth(2);
+
+	// Load Hi Score from localStorage
+	const highScore = localStorage.getItem("hiScore");
+	this.hiScore = highScore ? parseInt(highScore, 10) : 0;
+	this.milestoneCheckpoint = 0;
+
+	this.add.text(width - 180, 10, "HI", {
+	  fontSize: "16px",
+	  color: "#666"
+	}).setDepth(2);
+
+	this.hiScoreText = this.add.text(width - 150, 10, this.formatScore(this.hiScore), {
+	  fontSize: "16px",
+	  color: "#222",
+	  fontStyle: "bold"
+	}).setDepth(2);
 
 		// Ground platform (invisible)
-		const groundHeight = 20;
+		const groundHeight = 25;
 		const groundY = height - groundHeight / 2;
 
 		const ground = this.physics.add.staticGroup();
@@ -133,10 +236,13 @@ export default class RunnerScene extends Phaser.Scene {
 		this.physics.add.collider(this.player, this.obstacles, this.handleGameOver, undefined, this);
 	}
 
-	update(time: number, delta: number) {
-		if (this.isGameOver) return;
+  update(time: number, delta: number) {
+	if (this.isGameOver) return;
 
-		this.ground.tilePositionX += this.gameSpeed * (delta / 1000);
+	if (this.bg) {
+	  this.bg.tilePositionX += (this.gameSpeed * 0.3) * (delta / 1000);
+	}
+	this.ground.tilePositionX += this.gameSpeed * (delta / 1000);
 
 		// Start jump
 		if (
@@ -153,12 +259,31 @@ export default class RunnerScene extends Phaser.Scene {
 		// While jump key is held, add velocity
 		if (this.isJumping && (this.cursorSpace.isDown || this.cursorUp.isDown)) {
 			this.jumpHoldTime += delta;
-			console.log(`Jump hold time: ${this.jumpHoldTime}ms`);
 			if (this.jumpHoldTime < this.maxJumpHold) {
 				this.player.setVelocityY(this.player.body.velocity.y - 10);
 			} else {
 				this.isJumping = false;
 			}
+		}
+		
+		if (Math.abs(this.player.body.velocity.y) > 1) {
+			if (this.player.body.velocity.y < 0) {
+				this.player.play('jump_up', true);
+			} else {
+				this.player.play('jump_down', true);
+			}
+			this.player.setOrigin(0.5, 1);
+			this.player.body.allowGravity = true;
+			this.player.setScale(1);
+	this.player.body.setSize(48, 56);
+	this.player.body.setOffset(30, 21);
+		} else if (!this.isDucking) {
+			this.player.play('run', true);
+			this.player.setOrigin(0.5, 1);
+			this.player.body.allowGravity = true;
+			this.player.setScale(1);
+	this.player.body.setSize(48, 56);
+	this.player.body.setOffset(30, 5);
 		}
 
 		// Stop jump when key is released
@@ -166,17 +291,24 @@ export default class RunnerScene extends Phaser.Scene {
 			this.isJumping = false;
 		}
 
-		// Ducking logic
 		if (Phaser.Input.Keyboard.JustDown(this.cursorDown) && !this.isDucking && this.player.body?.touching.down) {
 			this.isDucking = true;
-			this.player.setDisplaySize(20, 20);
+			this.player.play('duck', true);
+			this.player.setOrigin(0.5, 1);
+			this.player.setScale(1);
+	this.player.body.setSize(48, 30);
+this.player.body.setOffset(30, 56 - 30+5);
 		}
 
 		// Stand (on key release)
 		if (Phaser.Input.Keyboard.JustUp(this.cursorDown) && this.isDucking) {
 			this.isDucking = false;
-			this.player.y -= 20;
-			this.player.setDisplaySize(20, 40);
+			this.player.play('run', true);
+			this.player.setOrigin(0.5, 1);
+			this.player.body.allowGravity = true;
+			this.player.setScale(1);
+	this.player.body.setSize(48, 56);
+	this.player.body.setOffset(30, 5);
 		}
 		// Update score
 		this.score += delta * 0.01;
@@ -211,8 +343,8 @@ export default class RunnerScene extends Phaser.Scene {
 	}
 
 	private spawnObstacle() {
-		const stage = Math.floor(this.score / 200);
-
+		//const stage = Math.floor(this.score / 200);
+const stage=Phaser.Math.Between(0, 1)
 		switch (stage) {
 			case 0:
 				this.spawnGroundObstacle();
@@ -244,53 +376,46 @@ export default class RunnerScene extends Phaser.Scene {
 		const spacing = 22;
 
 		for (let i = 0; i < count; i++) {
-			const obstacleHeight = Phaser.Math.RND.pick([20, 40]);
-
+			const hazardKey = Phaser.Math.RND.pick(['groundHazard1', 'groundHazard2']);
 			const obstacle = this.obstacles
-				.create(width + 20 + i * spacing, 0, "")
+				.create(width + 20 + i * spacing, 0, hazardKey)
 				.setOrigin(0, 1)
-				.setDisplaySize(20, obstacleHeight)
-				.setTint(0x888888);
-
+				.setDisplaySize(28, 17);
 			obstacle.setVelocityX(-this.gameSpeed);
 			obstacle.setImmovable(true);
 			obstacle.body.setAllowGravity(false);
-			obstacle.setY(height - 25);
+			obstacle.setY(height - 20);
 		}
 	}
 
 	private spawnFlyingObstacle() {
 		const { width, height } = this.scale;
-
 		const type = Phaser.Math.Between(0, 1);
-
+		const hazardKey = 'flyingHazard1';
 		const obstacle = this.obstacles
-			.create(width + 20, 0, "")
-			.setDisplaySize(20, 20)
-			.setTint(0xffaaaa);
-
+			.create(width + 20, 0, hazardKey)
+			.setDisplaySize(75, 29);
 		obstacle.setVelocityX(-this.gameSpeed);
 		obstacle.setImmovable(true);
 		obstacle.body.setAllowGravity(false);
-
-		obstacle.setY(type === 0 ? height - 30 : height - 60);
+		obstacle.setY(height - 80);
+		obstacle.setFlipX(true);
 	}
 
 	private spawnMixedObstacle() {
 		const { width, height } = this.scale;
-
 		const type = Phaser.Math.Between(0, 1);
-
+		const hazardKey = type === 0 ? 'groundHazard1' : 'flyingHazard1';
 		const obstacle = this.obstacles
-			.create(width + 20, 0, "")
-			.setDisplaySize(20, 20)
-			.setTint(type === 0 ? 0x888888 : 0xffaaaa);
-
+			.create(width + 20, 0, hazardKey)
+			.setDisplaySize(40, 40);
 		obstacle.setVelocityX(-this.gameSpeed);
 		obstacle.setImmovable(true);
 		obstacle.body.setAllowGravity(false);
-
 		obstacle.setY(type === 0 ? height - 30 : height - 60);
+		if (hazardKey === 'flyingHazard1') {
+			obstacle.setFlipX(true);
+		}
 	}
 
 	private handleGameOver = () => {
@@ -298,9 +423,14 @@ export default class RunnerScene extends Phaser.Scene {
 		this.isGameOver = true;
 
 		this.physics.pause();
-		this.player.setTint(0xff0000);
+	this.player.play('death', true);
 
 		const { width, height } = this.scale;
+		const scoreBgWidth = 180;
+		const scoreBgHeight = 40;
+		this.add.rectangle(width / 2-scoreBgWidth/2, height / 2-scoreBgHeight/2, scoreBgWidth, scoreBgHeight, 0xffffff, 1)
+			.setOrigin(0, 0)
+
 		this.add
 			.text(width / 2, height / 2, `GAME OVER\nScore: ${Math.floor(this.score)}`, {
 				fontSize: "20px",

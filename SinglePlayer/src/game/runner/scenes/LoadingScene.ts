@@ -1,6 +1,5 @@
 
 import dinosaurSheet from "@game/public/assets/animations/dinoSpriteSheet.png";
-import groundImage from "@game/public/assets/images/ground.png";
 import jumpSound from "@game/public/assets/audio/sfx/jump.wav";
 import scoreSound from "@game/public/assets/audio/sfx/score.wav";
 import gameOverSound from "@game/public/assets/audio/sfx/gameOver.wav";
@@ -18,15 +17,18 @@ export default class LoadingScene extends Phaser.Scene {
 
 		// Add loading background image
 		this.add.image(0, 0, "loadingBackground").setOrigin(0).setDisplaySize(width, height);
-
-		this.load.image("ground", groundImage);
-
+		this.add.image(0, 0, "groundBackground").setOrigin(0).setDisplaySize(width, height);
+		const rectangleWidth=200;
+		const rectangleHeight=80;
+		this.add.rectangle(width / 2-rectangleWidth/2, height / 2-rectangleHeight/2, rectangleWidth, rectangleHeight, 0xffffff, 1)
+			.setOrigin(0, 0)
+		
 		// === Loading Text ===
 		const loadingText = this.add
 			.text(width / 2, height / 2 - 28, "LOADING..", {
 				fontSize: "26px",
 				fontFamily: '"Press Start 2P", monospace',
-				color: "#000000ff",
+				color: "#000000",
 			})
 			.setOrigin(0.5);
 

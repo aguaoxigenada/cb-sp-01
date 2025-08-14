@@ -5,11 +5,12 @@ import BootScene from "./runner/scenes/BootScene";
 
 const config: Types.Core.GameConfig = {
 	type: Phaser.AUTO,
-	width: 600,
-	height: 150,
-	scale: {
-		autoCenter: Phaser.Scale.CENTER_BOTH,
-	},
+    width: 600, // Tamaño base
+    height: 150, // Tamaño base
+    scale: {
+        mode: Phaser.Scale.FIT, // Mantiene el aspecto ratio y ajusta al contenedor
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+    },
 	input: {
 		activePointers: 3,
 	},
@@ -26,7 +27,7 @@ const config: Types.Core.GameConfig = {
 				y: 200,
 			},
 			fps: 300,
-			debug: false,
+			debug: false
 		},
 	},
 	scene: [BootScene, LoadingScene, RunnerScene],
