@@ -1,0 +1,24 @@
+{
+  "tokenStandard": "nft",
+  "number": 1,
+  "symbol": "CBX",
+  "sellerFeeBasisPoints": 0,
+  "isMutable": true,
+  "isSequential": false,
+  "ruleSet": null,
+
+  "creators": [
+    { "address": "FkD2KPzQ76PQXieCeV1muhGBa7Tb1yKyKVgzMrpuAQP7", "share": 100 }
+  ],
+
+  "hiddenSettings": null,
+
+  "uploadMethod": "bundlr",
+  "awsConfig": null,
+  "nftStorageAuthToken": null,
+  "shdwStorageAccount": null,
+  "pinataConfig": null,
+  "sdriveApiKey": null,
+
+  "guards": { "default": {} }
+}
