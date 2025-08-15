@@ -439,16 +439,30 @@ const stage=Phaser.Math.Between(0, 1)
 			})
 			.setOrigin(0.5);
 
+			// Botón de reinicio
+			const restartButton = this.add.text(width / 2, height / 2 + 50, 'Reiniciar', {
+				fontSize: '18px',
+				color: '#828282ff',
+				backgroundColor: '#ffffff',
+				padding: { left: 16, right: 16, top: 8, bottom: 8 },
+			})
+			.setOrigin(0.5)
+			.setInteractive({ useHandCursor: true })
+			.setDepth(10);
+
+			restartButton.on('pointerdown', () => {
+				this.scene.restart();
+			});
+
 		if (this.score > this.hiScore) {
 			this.hiScore = Math.floor(this.score);
 			this.hiScoreText.setText(this.formatScore(this.hiScore));
 			localStorage.setItem("hiScore", this.hiScore.toString());
 		}
 		this.gameOverSound.play();
-
-		this.time.delayedCall(2000, () => {
-			this.scene.restart();
-		});
+		window.dispatchEvent(new CustomEvent('phaser-game-over', {
+			detail: { score: Math.floor(this.score) }
+		}));
 	};
 
 	private formatScore(score: number): string {
