@@ -30,6 +30,7 @@ export default class RunnerScene extends Phaser.Scene {
 	private isDucking: boolean = false;
 	private obstacleTimer!: Phaser.Time.TimerEvent;
 	private ground!: Phaser.GameObjects.TileSprite;
+	private isGameStarted: boolean = false;
 	private hiScore: number = 0;
 	private hiScoreText: Phaser.GameObjects.Text;
 	private milestoneCheckpoint: number = 0;
@@ -41,8 +42,12 @@ export default class RunnerScene extends Phaser.Scene {
 	private cursorSpace!: Phaser.Input.Keyboard.Key;
 	private isJumping: boolean = false;
 	private jumpHoldTime: number = 0;
-	private maxJumpHold: number = 150; // ms
+	private maxJumpHold: number = 150; // ms}
+	private elementScale:number=Math.sqrt(0.3);
+	private hasNegativeFilter: boolean = false;
 
+	private startButtonText : Phaser.GameObjects.Text | null = null;
+	private startButtonSprite : Phaser.GameObjects.Sprite | null = null;
 	constructor() {
 		super("RunnerScene");
 	}
@@ -54,9 +59,12 @@ export default class RunnerScene extends Phaser.Scene {
     const scaleY = gameSize.height / baseHeight;
     const scale = Math.min(scaleX, scaleY);
 
-    this.cameras.main.setZoom(scale);
+    this.cameras.main.setZoom(1);
 
     }
+	private sky!: Phaser.GameObjects.TileSprite;
+	private bg!: Phaser.GameObjects.TileSprite;
+	
 	create() {    
 		this.scale.on('resize', this.resizeGame, this);
     	this.resizeGame({ width: this.scale.width, height: this.scale.height });
@@ -79,8 +87,9 @@ export default class RunnerScene extends Phaser.Scene {
 		this.cursorSpace = space!;
 
 		this.isGameOver = false;
+		this.isGameStarted = false;
 		this.score = 0;
-		this.physics.resume();
+		this.physics.pause();
 		this.gameSpeed = 200;
 
 		const runFrames = [];
@@ -140,7 +149,7 @@ export default class RunnerScene extends Phaser.Scene {
 
 	this.player = this.physics.add.sprite(50, 0, 'dino_run_1');
 	this.player.setOrigin(0.5, 1);
-	this.player.setScale(1);
+	this.player.setScale(this.elementScale);
 	this.player.body.setSize(48, 56);
 	this.player.body.setOffset(30, 5);
 	this.player.setCollideWorldBounds(true);
@@ -183,7 +192,7 @@ export default class RunnerScene extends Phaser.Scene {
 	}).setDepth(2);
 
 		// Ground platform (invisible)
-		const groundHeight = 25;
+		const groundHeight = 23;
 		const groundY = height - groundHeight / 2;
 
 		const ground = this.physics.add.staticGroup();
@@ -213,6 +222,7 @@ export default class RunnerScene extends Phaser.Scene {
 			callback: this.spawnObstacle,
 			callbackScope: this,
 			loop: true,
+			paused: true,
 		});
 
 		// Difficulty progression every 10s
@@ -234,16 +244,25 @@ export default class RunnerScene extends Phaser.Scene {
 
 		// Collision check
 		this.physics.add.collider(this.player, this.obstacles, this.handleGameOver, undefined, this);
+		
+		this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+			this.handleTouchInput(pointer);
+		});
+		
+		this.input.on('pointerup', () => {
+			this.isJumping = false;
+		});
+		
+		this.showStartScreen();
 	}
 
   update(time: number, delta: number) {
-	if (this.isGameOver) return;
+	if (this.isGameOver || !this.isGameStarted) return;
 
 	if (this.bg) {
 	  this.bg.tilePositionX += (this.gameSpeed * 0.3) * (delta / 1000);
 	}
 	this.ground.tilePositionX += this.gameSpeed * (delta / 1000);
-
 		// Start jump
 		if (
 			(Phaser.Input.Keyboard.JustDown(this.cursorSpace) || Phaser.Input.Keyboard.JustDown(this.cursorUp)) &&
@@ -257,7 +276,7 @@ export default class RunnerScene extends Phaser.Scene {
 		}
 
 		// While jump key is held, add velocity
-		if (this.isJumping && (this.cursorSpace.isDown || this.cursorUp.isDown)) {
+		if (this.isJumping && (this.cursorSpace.isDown || this.cursorUp.isDown || this.input.activePointer.isDown)) {
 			this.jumpHoldTime += delta;
 			if (this.jumpHoldTime < this.maxJumpHold) {
 				this.player.setVelocityY(this.player.body.velocity.y - 10);
@@ -274,14 +293,14 @@ export default class RunnerScene extends Phaser.Scene {
 			}
 			this.player.setOrigin(0.5, 1);
 			this.player.body.allowGravity = true;
-			this.player.setScale(1);
+			this.player.setScale(this.elementScale);
 	this.player.body.setSize(48, 56);
 	this.player.body.setOffset(30, 21);
 		} else if (!this.isDucking) {
 			this.player.play('run', true);
 			this.player.setOrigin(0.5, 1);
 			this.player.body.allowGravity = true;
-			this.player.setScale(1);
+			this.player.setScale(this.elementScale);
 	this.player.body.setSize(48, 56);
 	this.player.body.setOffset(30, 5);
 		}
@@ -293,20 +312,20 @@ export default class RunnerScene extends Phaser.Scene {
 
 		if (Phaser.Input.Keyboard.JustDown(this.cursorDown) && !this.isDucking && this.player.body?.touching.down) {
 			this.isDucking = true;
-			this.player.play('duck', true);
+	this.player.play('duck', true);
 			this.player.setOrigin(0.5, 1);
-			this.player.setScale(1);
+			this.player.setScale(this.elementScale);
 	this.player.body.setSize(48, 30);
-this.player.body.setOffset(30, 56 - 30+5);
+this.player.body.setOffset(30, 50);
 		}
 
 		// Stand (on key release)
-		if (Phaser.Input.Keyboard.JustUp(this.cursorDown) && this.isDucking) {
+		if ((Phaser.Input.Keyboard.JustUp(this.cursorDown) || this.input.activePointer.justUp) && this.isDucking) {
 			this.isDucking = false;
 			this.player.play('run', true);
 			this.player.setOrigin(0.5, 1);
 			this.player.body.allowGravity = true;
-			this.player.setScale(1);
+			this.player.setScale(this.elementScale);
 	this.player.body.setSize(48, 56);
 	this.player.body.setOffset(30, 5);
 		}
@@ -337,6 +356,8 @@ this.player.body.setOffset(30, 56 - 30+5);
 
 			if (obs.x < -obs.width) {
 				obs.destroy();
+			} else if (this.hasNegativeFilter && !obs.tintTopLeft) {
+				obs.setTint(0x0000FF);
 			}
 			return null;
 		});
@@ -381,10 +402,15 @@ const stage=Phaser.Math.Between(0, 1)
 				.create(width + 20 + i * spacing, 0, hazardKey)
 				.setOrigin(0, 1)
 				.setDisplaySize(28, 17);
+	obstacle.setScale(this.elementScale);
 			obstacle.setVelocityX(-this.gameSpeed);
 			obstacle.setImmovable(true);
 			obstacle.body.setAllowGravity(false);
 			obstacle.setY(height - 20);
+			
+			if (this.hasNegativeFilter) {
+				obstacle.setTint(0x0000FF);
+			}
 		}
 	}
 
@@ -397,9 +423,14 @@ const stage=Phaser.Math.Between(0, 1)
 			.setDisplaySize(75, 29);
 		obstacle.setVelocityX(-this.gameSpeed);
 		obstacle.setImmovable(true);
+	obstacle.setScale(this.elementScale);
 		obstacle.body.setAllowGravity(false);
-		obstacle.setY(height - 80);
+		obstacle.setY(height - 55);
 		obstacle.setFlipX(true);
+		
+		if (this.hasNegativeFilter) {
+			obstacle.setTint(0x0000FF);
+		}
 	}
 
 	private spawnMixedObstacle() {
@@ -411,10 +442,15 @@ const stage=Phaser.Math.Between(0, 1)
 			.setDisplaySize(40, 40);
 		obstacle.setVelocityX(-this.gameSpeed);
 		obstacle.setImmovable(true);
+	obstacle.setScale(this.elementScale);
 		obstacle.body.setAllowGravity(false);
 		obstacle.setY(type === 0 ? height - 30 : height - 60);
 		if (hazardKey === 'flyingHazard1') {
 			obstacle.setFlipX(true);
+		}
+		
+		if (this.hasNegativeFilter) {
+			obstacle.setTint(0x0000FF);
 		}
 	}
 
@@ -424,6 +460,7 @@ const stage=Phaser.Math.Between(0, 1)
 
 		this.physics.pause();
 	this.player.play('death', true);
+		
 
 		const { width, height } = this.scale;
 		const scoreBgWidth = 180;
@@ -435,11 +472,10 @@ const stage=Phaser.Math.Between(0, 1)
 			.text(width / 2, height / 2, `GAME OVER\nScore: ${Math.floor(this.score)}`, {
 				fontSize: "20px",
 				color: "#828282ff",
-				align: "center",
+				align: "center", 
 			})
 			.setOrigin(0.5);
 
-			// Botón de reinicio
 			const restartButton = this.add.text(width / 2, height / 2 + 50, 'Reiniciar', {
 				fontSize: '18px',
 				color: '#828282ff',
@@ -463,9 +499,173 @@ const stage=Phaser.Math.Between(0, 1)
 		window.dispatchEvent(new CustomEvent('phaser-game-over', {
 			detail: { score: Math.floor(this.score) }
 		}));
+		
+		this.showWalletPopup();
 	};
 
 	private formatScore(score: number): string {
 		return score.toString().padStart(5, "0");
+	}
+
+	private showStartScreen(): void {
+		const { width, height } = this.scale;
+		
+		const startBgWidth = 180;
+		const startBgHeight = 40;
+		this.startButtonSprite = this.add.rectangle(width / 2 - startBgWidth/2, height / 2 - startBgHeight/2, startBgWidth, startBgHeight, 0xffffff, 1)
+			.setOrigin(0, 0)
+			.setDepth(9);
+
+		this.startButtonText = this.add.text(width / 2, height / 2, 'INICIAR', {
+			fontSize: '18px',
+			color: '#828282ff',
+			backgroundColor: '#ffffff',
+			padding: { left: 16, right: 16, top: 8, bottom: 8 },
+		})
+		.setOrigin(0.5)
+		.setInteractive({ useHandCursor: true })
+		.setDepth(10);
+
+		this.startButtonText.on('pointerdown', () => {
+			this.startGame();
+		});
+
+	}
+
+	private startGame(): void {
+		this.isGameStarted = true;
+		this.physics.resume();
+		this.startButtonSprite?.destroy();
+		this.startButtonText?.destroy();
+		this.obstacleTimer.paused = false;
+		
+		this.hasNegativeFilter = Phaser.Math.Between(0, 1) === 1;
+		
+		if (this.hasNegativeFilter) {
+			this.applyNegativeFilter();
+			
+		}
+	}
+	
+	private showWalletPopup(): void {
+		this.obstacleTimer.paused = true;
+		const { width, height } = this.scale;
+		
+		const popupWidth = 300;
+		const popupHeight = 150;
+		const x = width / 2 - popupWidth / 2;
+		const y = height / 2 - popupHeight / 2;
+		
+		const popupBg = this.add.rectangle(x, y, popupWidth, popupHeight, 0xCCCCCC, 1)			.setOrigin(0, 0)
+			.setDepth(20);
+			
+		const messageText = this.add.text(width / 2, y + 40, 'Please connect your wallet to obtain your ' + Math.floor(this.score) + ' tokens', {
+			fontSize: '16px',
+			color: '#666666',
+			align: 'center',
+			wordWrap: { width: popupWidth - 40 }
+		})
+		.setOrigin(0.5, 0)
+		.setDepth(21);
+		
+		const connectButton = this.add.rectangle(width / 2, y + popupHeight - 40, 160, 40, 0x00ffff)
+			.setOrigin(0.5)
+			.setDepth(21);
+			
+		const connectText = this.add.text(width / 2, y + popupHeight - 40, 'CONNECT WALLET', {
+			fontSize: '14px',
+			color: '#000000',
+			fontStyle: 'bold'
+		})
+		.setOrigin(0.5)
+		.setDepth(22);
+		
+		const buttonContainer = this.add.container(0, 0, [connectButton, connectText])
+			.setDepth(21)
+			.setInteractive(new Phaser.Geom.Rectangle(width / 2 - 80, y + popupHeight - 60, 160, 40), Phaser.Geom.Rectangle.Contains)
+			.on('pointerdown', () => {
+				window.dispatchEvent(new CustomEvent('connect-wallet-request'));
+				this.showRewardPopup();
+			})
+			.on('pointerover', () => {
+				connectButton.setFillStyle(0x33ffff);
+			})
+			.on('pointerout', () => {
+				connectButton.setFillStyle(0x00ffff);
+			});
+	}
+	
+	private showRewardPopup(): void {
+		const { width, height } = this.scale;
+		
+		const popupWidth = 300;
+		const popupHeight = 150;
+		const x = width / 2 - popupWidth / 2;
+		const y = height / 2 - popupHeight / 2;
+		
+		const popupBg = this.add.rectangle(x, y, popupWidth, popupHeight, 0xCCCCCC, 1)
+			.setOrigin(0, 0)
+			.setDepth(30);
+			
+		const messageText = this.add.text(width / 2, y + 60, 'Perfect! We have\nsent you ' + Math.floor(this.score) + ' CBX!', {
+			fontSize: '18px',
+			color: '#666666',
+			align: 'center',
+			fontStyle: 'bold',
+			wordWrap: { width: popupWidth - 40 }
+		})
+		.setOrigin(0.5, 0.5)
+		.setDepth(31);
+		
+		const resetButton = this.add.rectangle(width / 2, y + popupHeight - 40, 120, 30, 0x333333)
+			.setOrigin(0.5)
+			.setDepth(31);
+			
+		const resetText = this.add.text(width / 2, y + popupHeight - 40, 'RESET', {
+			fontSize: '14px',
+			color: '#FFFFFF',
+			fontStyle: 'bold'
+		})
+		.setOrigin(0.5)
+		.setDepth(32);
+		
+		const buttonContainer = this.add.container(0, 0, [resetButton, resetText])
+			.setDepth(31)
+			.setInteractive(new Phaser.Geom.Rectangle(width / 2 - 60, y + popupHeight - 55, 120, 30), Phaser.Geom.Rectangle.Contains)
+			.on('pointerdown', () => {
+				this.obstacleTimer.paused = false;
+				this.scene.restart();
+			})
+			.on('pointerover', () => {
+				resetButton.setFillStyle(0x555555);
+			})
+			.on('pointerout', () => {
+				resetButton.setFillStyle(0x333333);
+			});
+	}
+	
+	private handleTouchInput(pointer: Phaser.Input.Pointer): void {
+		if (this.isGameOver || !this.isGameStarted) return;
+		
+		const { height } = this.scale;
+		
+		if ( this.player.body?.touching.down && !this.isDucking) {
+			this.player.setVelocityY(-300); 
+			this.jumpSound.play();
+			this.isJumping = true;
+			this.jumpHoldTime = 0;
+		}
+	}
+	
+	private applyNegativeFilter(): void {
+		this.cameras.main.setBackgroundColor(0x000000);
+		
+		this.player.setTint(0x0000FF);
+		this.ground.setTint(0x0000FF);
+		this.sky.setTint(0x0000FF);
+		this.bg.setTint(0x0000FF);
+		
+		this.scoreText.setTint(0xFFFF00);
+		this.hiScoreText.setTint(0xFFFF00);
 	}
 }
