@@ -18,9 +18,13 @@ export default class RunnerScene extends Phaser.Scene {
 		this.load.image('parallax_bg2', 'assets/images/parallaxBackground2.png');
 		this.load.image('groundBackground', 'assets/images/groundBackground.png');
 		this.load.image('skyBackground', 'assets/images/skyBackground.png');
+		
+		this.load.image('night_sky', 'assets/images/night/skyBackground.png');
+		this.load.image('night_parallax', 'assets/images/night/parallaxBackground1.png');
+		this.load.image('night_ground', 'assets/images/night/groundBackground.png');
 	}
 	private player!: Phaser.Physics.Arcade.Sprite;
-	private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+	private cursors!: Phaser.Types.Input.Keyboard.CursorKeys; 
 	private obstacles!: Phaser.Physics.Arcade.Group;
 	private score: number = 0;
 	private scoreText!: Phaser.GameObjects.Text;
@@ -29,6 +33,7 @@ export default class RunnerScene extends Phaser.Scene {
 	private isGameOver: boolean = false;
 	private isDucking: boolean = false;
 	private obstacleTimer!: Phaser.Time.TimerEvent;
+	private progressionTimer!: Phaser.Time.TimerEvent;
 	private ground!: Phaser.GameObjects.TileSprite;
 	private isGameStarted: boolean = false;
 	private hiScore: number = 0;
@@ -43,8 +48,9 @@ export default class RunnerScene extends Phaser.Scene {
 	private isJumping: boolean = false;
 	private jumpHoldTime: number = 0;
 	private maxJumpHold: number = 150; // ms}
-	private elementScale:number=Math.sqrt(0.3);
+	private elementScale:number=1;
 	private hasNegativeFilter: boolean = false;
+	private isNightMode: boolean = false;
 
 	private startButtonText : Phaser.GameObjects.Text | null = null;
 	private startButtonSprite : Phaser.GameObjects.Sprite | null = null;
@@ -69,6 +75,8 @@ export default class RunnerScene extends Phaser.Scene {
 		this.scale.on('resize', this.resizeGame, this);
     	this.resizeGame({ width: this.scale.width, height: this.scale.height });
   
+	this.isNightMode = false;
+		
 		const { width, height } = this.scale;
 		this.sky= this.add.tileSprite(0, 0, width, height, 'skyBackground').setOrigin(0, 0).setScrollFactor(0);
 		this.bg = this.add.tileSprite(0, 0, width, height, 'parallax_bg').setOrigin(0, 0).setScrollFactor(0);
@@ -226,8 +234,9 @@ export default class RunnerScene extends Phaser.Scene {
 		});
 
 		// Difficulty progression every 10s
-		this.time.addEvent({
+		this.progressionTimer=this.time.addEvent({
 			delay: 10000,
+			paused: true,
 			callback: () => {
 				this.gameSpeed += 60;
 				const newDelay = Math.max(500, this.obstacleTimer.delay - 100);
@@ -262,6 +271,7 @@ export default class RunnerScene extends Phaser.Scene {
 	if (this.bg) {
 	  this.bg.tilePositionX += (this.gameSpeed * 0.3) * (delta / 1000);
 	}
+	this.sky.tilePositionX += this.gameSpeed*0.1 * (delta / 1000);
 	this.ground.tilePositionX += this.gameSpeed * (delta / 1000);
 		// Start jump
 		if (
@@ -294,15 +304,15 @@ export default class RunnerScene extends Phaser.Scene {
 			this.player.setOrigin(0.5, 1);
 			this.player.body.allowGravity = true;
 			this.player.setScale(this.elementScale);
-	this.player.body.setSize(48, 56);
-	this.player.body.setOffset(30, 21);
+	this.player.body.setSize(24, 32);
+	this.player.body.setOffset(12, 8);
 		} else if (!this.isDucking) {
 			this.player.play('run', true);
 			this.player.setOrigin(0.5, 1);
 			this.player.body.allowGravity = true;
 			this.player.setScale(this.elementScale);
-	this.player.body.setSize(48, 56);
-	this.player.body.setOffset(30, 5);
+	this.player.body.setSize(24, 32);
+	this.player.body.setOffset(12, 8);
 		}
 
 		// Stop jump when key is released
@@ -315,8 +325,8 @@ export default class RunnerScene extends Phaser.Scene {
 	this.player.play('duck', true);
 			this.player.setOrigin(0.5, 1);
 			this.player.setScale(this.elementScale);
-	this.player.body.setSize(48, 30);
-this.player.body.setOffset(30, 50);
+	this.player.body.setSize(24, 16);
+this.player.body.setOffset(12, 24);
 		}
 
 		// Stand (on key release)
@@ -326,13 +336,17 @@ this.player.body.setOffset(30, 50);
 			this.player.setOrigin(0.5, 1);
 			this.player.body.allowGravity = true;
 			this.player.setScale(this.elementScale);
-	this.player.body.setSize(48, 56);
-	this.player.body.setOffset(30, 5);
+	this.player.body.setSize(24, 32);
+	this.player.body.setOffset(12, 8);
 		}
 		// Update score
 		this.score += delta * 0.01;
 		const currentRoundedScore = Math.floor(this.score);
 		this.scoreText.setText(this.formatScore(Math.floor(currentRoundedScore)));
+		
+		if (currentRoundedScore >= 100 && !this.isNightMode) {
+			this.switchToNightMode();
+		}
 
 		// Update milestone + blink
 		if (currentRoundedScore >= this.milestoneCheckpoint + 100) {
@@ -402,7 +416,7 @@ const stage=Phaser.Math.Between(0, 1)
 				.create(width + 20 + i * spacing, 0, hazardKey)
 				.setOrigin(0, 1)
 				.setDisplaySize(28, 17);
-	obstacle.setScale(this.elementScale);
+	obstacle.setScale(0.5);
 			obstacle.setVelocityX(-this.gameSpeed);
 			obstacle.setImmovable(true);
 			obstacle.body.setAllowGravity(false);
@@ -423,7 +437,7 @@ const stage=Phaser.Math.Between(0, 1)
 			.setDisplaySize(75, 29);
 		obstacle.setVelocityX(-this.gameSpeed);
 		obstacle.setImmovable(true);
-	obstacle.setScale(this.elementScale);
+	obstacle.setScale(0.5);
 		obstacle.body.setAllowGravity(false);
 		obstacle.setY(height - 55);
 		obstacle.setFlipX(true);
@@ -442,7 +456,7 @@ const stage=Phaser.Math.Between(0, 1)
 			.setDisplaySize(40, 40);
 		obstacle.setVelocityX(-this.gameSpeed);
 		obstacle.setImmovable(true);
-	obstacle.setScale(this.elementScale);
+	obstacle.setScale(0.5);
 		obstacle.body.setAllowGravity(false);
 		obstacle.setY(type === 0 ? height - 30 : height - 60);
 		if (hazardKey === 'flyingHazard1') {
@@ -538,17 +552,13 @@ const stage=Phaser.Math.Between(0, 1)
 		this.startButtonSprite?.destroy();
 		this.startButtonText?.destroy();
 		this.obstacleTimer.paused = false;
+		this.progressionTimer.paused = false;
 		
-		this.hasNegativeFilter = Phaser.Math.Between(0, 1) === 1;
-		
-		if (this.hasNegativeFilter) {
-			this.applyNegativeFilter();
-			
-		}
 	}
 	
 	private showWalletPopup(): void {
 		this.obstacleTimer.paused = true;
+		this.progressionTimer.paused = true;
 		const { width, height } = this.scale;
 		
 		const popupWidth = 300;
@@ -634,6 +644,7 @@ const stage=Phaser.Math.Between(0, 1)
 			.setInteractive(new Phaser.Geom.Rectangle(width / 2 - 60, y + popupHeight - 55, 120, 30), Phaser.Geom.Rectangle.Contains)
 			.on('pointerdown', () => {
 				this.obstacleTimer.paused = false;
+				this.progressionTimer.paused = false;
 				this.scene.restart();
 			})
 			.on('pointerover', () => {
@@ -657,15 +668,17 @@ const stage=Phaser.Math.Between(0, 1)
 		}
 	}
 	
-	private applyNegativeFilter(): void {
-		this.cameras.main.setBackgroundColor(0x000000);
+	
+	private switchToNightMode(): void {
+		if (this.isNightMode) return; 
 		
-		this.player.setTint(0x0000FF);
-		this.ground.setTint(0x0000FF);
-		this.sky.setTint(0x0000FF);
-		this.bg.setTint(0x0000FF);
+		const { width, height } = this.scale;
 		
-		this.scoreText.setTint(0xFFFF00);
-		this.hiScoreText.setTint(0xFFFF00);
+		this.sky.setTexture('night_sky');
+		this.bg.setTexture('night_parallax');
+		this.ground.setTexture('night_ground');
+		
+		
+		this.isNightMode = true;
 	}
 }
