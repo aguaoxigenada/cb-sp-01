@@ -139,7 +139,7 @@ export default class RunnerScene extends Phaser.Scene {
 		});
 
 		const jumpUpFrames = [];
-		for (let i = 1; i <= 4; i++) {
+		for (let i = 1; i <= 5; i++) {
 			jumpUpFrames.push({ key: `dino_jump_${i}` });
 		}
 		this.anims.create({
@@ -150,7 +150,7 @@ export default class RunnerScene extends Phaser.Scene {
 		});
 
 		const jumpDownFrames = [];
-		for (let i = 5; i <= 8; i++) {
+		for (let i = 6; i <= 8; i++) {
 			jumpDownFrames.push({ key: `dino_jump_${i}` });
 		}
 		this.anims.create({
