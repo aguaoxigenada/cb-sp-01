@@ -3,6 +3,7 @@ import Phaser from "phaser";
 export default class RunnerScene extends Phaser.Scene {
 
 	preload() {
+	this.load.atlas('ui_elements', 'assets/images/ui/elements.png', 'assets/images/ui/elements.json');
 		for (let i = 1; i <= 8; i++) {
 			this.load.image(`dino_run_${i}`, `assets/images/character/running/running${i}.png`);
 			this.load.image(`dino_duck_${i}`, `assets/images/character/crouching/crouching${i}.png`);
@@ -22,6 +23,7 @@ export default class RunnerScene extends Phaser.Scene {
 		this.load.image('night_sky', 'assets/images/night/skyBackground.png');
 		this.load.image('night_parallax', 'assets/images/night/parallaxBackground1.png');
 		this.load.image('night_ground', 'assets/images/night/groundBackground.png');
+		this.load.image('title', 'assets/images/ui/title.png');
 	}
 	private player!: Phaser.Physics.Arcade.Sprite;
 	private cursors!: Phaser.Types.Input.Keyboard.CursorKeys; 
@@ -54,6 +56,11 @@ export default class RunnerScene extends Phaser.Scene {
 
 	private startButtonText : Phaser.GameObjects.Text | null = null;
 	private startButtonSprite : Phaser.GameObjects.Sprite | null = null;
+	private titleSprite : Phaser.GameObjects.Sprite | null = null;
+
+	private sky!: Phaser.GameObjects.TileSprite;
+	private bg!: Phaser.GameObjects.TileSprite;
+
 	constructor() {
 		super("RunnerScene");
 	}
@@ -68,8 +75,6 @@ export default class RunnerScene extends Phaser.Scene {
     this.cameras.main.setZoom(1);
 
     }
-	private sky!: Phaser.GameObjects.TileSprite;
-	private bg!: Phaser.GameObjects.TileSprite;
 	
 	create() {    
 		this.scale.on('resize', this.resizeGame, this);
@@ -164,40 +169,6 @@ export default class RunnerScene extends Phaser.Scene {
 	this.player.setGravityY(800);
 	this.player.play('run');
 	this.player.setDepth(10);
-
-	const scoreBgWidth = 180;
-	const scoreBgHeight = 28;
-	const scoreBgX = width - scoreBgWidth-10;
-	const scoreBgY = 6;
-	this.add.rectangle(scoreBgX, scoreBgY, scoreBgWidth, scoreBgHeight, 0xffffff, 1)
-	  .setOrigin(0, 0)
-	  .setDepth(1);
-
-	// Score text (top-right)
-	this.scoreText = this.add
-	  .text(width - 20, 10, this.formatScore(this.score), {
-		fontSize: "16px",
-		color: "#222",
-		fontStyle: "bold"
-	  })
-	  .setOrigin(1, 0)
-	  .setDepth(2);
-
-	// Load Hi Score from localStorage
-	const highScore = localStorage.getItem("hiScore");
-	this.hiScore = highScore ? parseInt(highScore, 10) : 0;
-	this.milestoneCheckpoint = 0;
-
-	this.add.text(width - 180, 10, "HI", {
-	  fontSize: "16px",
-	  color: "#666"
-	}).setDepth(2);
-
-	this.hiScoreText = this.add.text(width - 150, 10, this.formatScore(this.hiScore), {
-	  fontSize: "16px",
-	  color: "#222",
-	  fontStyle: "bold"
-	}).setDepth(2);
 
 		// Ground platform (invisible)
 		const groundHeight = 23;
@@ -416,7 +387,8 @@ const stage=Phaser.Math.Between(0, 1)
 				.create(width + 20 + i * spacing, 0, hazardKey)
 				.setOrigin(0, 1)
 				.setDisplaySize(28, 17);
-	obstacle.setScale(0.5);
+			Math.random()>0.5?obstacle.setScale(0.5):obstacle.setScale(0.5,1);
+	
 			obstacle.setVelocityX(-this.gameSpeed);
 			obstacle.setImmovable(true);
 			obstacle.body.setAllowGravity(false);
@@ -457,10 +429,15 @@ const stage=Phaser.Math.Between(0, 1)
 		obstacle.setVelocityX(-this.gameSpeed);
 		obstacle.setImmovable(true);
 	obstacle.setScale(0.5);
+	
 		obstacle.body.setAllowGravity(false);
 		obstacle.setY(type === 0 ? height - 30 : height - 60);
 		if (hazardKey === 'flyingHazard1') {
 			obstacle.setFlipX(true);
+		}
+		else{
+			Math.random()>0.5?obstacle.setScale(0.5):obstacle.setScale(0.5,1);
+	
 		}
 		
 		if (this.hasNegativeFilter) {
@@ -526,31 +503,67 @@ const stage=Phaser.Math.Between(0, 1)
 		
 		const startBgWidth = 180;
 		const startBgHeight = 40;
-		this.startButtonSprite = this.add.rectangle(width / 2 - startBgWidth/2, height / 2 - startBgHeight/2, startBgWidth, startBgHeight, 0xffffff, 1)
-			.setOrigin(0, 0)
+		this.titleSprite  = this.add.sprite(width / 2, height / 2-20, 'title')
+			.setOrigin(0.5)
+			.setScale(0.27)
+			.setDepth(9);
+		this.startButtonSprite = this.add.sprite(width / 2, height / 2+20, 'ui_elements', 'white_panel')
+			.setOrigin(0.5)
+			.setScale(1.5,1)
+			.setInteractive({ useHandCursor: true })
 			.setDepth(9);
 
-		this.startButtonText = this.add.text(width / 2, height / 2, 'INICIAR', {
-			fontSize: '18px',
-			color: '#828282ff',
-			backgroundColor: '#ffffff',
-			padding: { left: 16, right: 16, top: 8, bottom: 8 },
-		})
-		.setOrigin(0.5)
-		.setInteractive({ useHandCursor: true })
-		.setDepth(10);
+		this.startButtonText = this.add.sprite(width / 2, height / 2 + 20, 'ui_elements', 'start_icon')
+			.setOrigin(0.5)
+			.setDepth(10);
 
-		this.startButtonText.on('pointerdown', () => {
+		this.startButtonSprite.on('pointerdown', () => {
 			this.startGame();
 		});
 
 	}
 
 	private startGame(): void {
+	const scoreBgWidth = 180;
+	const scoreBgHeight = 28;
+		const { width, height } = this.scale;
+	const scoreBgX = width - scoreBgWidth-10;
+	const scoreBgY = 6;
+	this.add.rectangle(scoreBgX, scoreBgY, scoreBgWidth, scoreBgHeight, 0xffffff, 1)
+	  .setOrigin(0, 0)
+	  .setDepth(1);
+
+	// Score text (top-right)
+	this.scoreText = this.add
+	  .text(width - 20, 10, this.formatScore(this.score), {
+		fontSize: "16px",
+		color: "#222",
+		fontStyle: "bold"
+	  })
+	  .setOrigin(1, 0)
+	  .setDepth(2);
+
+	// Load Hi Score from localStorage
+	const highScore = localStorage.getItem("hiScore");
+	this.hiScore = highScore ? parseInt(highScore, 10) : 0;
+	this.milestoneCheckpoint = 0;
+
+	this.add.text(width - 180, 10, "HI", {
+	  fontSize: "16px",
+	  color: "#666"
+	}).setDepth(2);
+
+	this.hiScoreText = this.add.text(width - 150, 10, this.formatScore(this.hiScore), {
+	  fontSize: "16px",
+	  color: "#222",
+	  fontStyle: "bold"
+	}).setDepth(2);
+
 		this.isGameStarted = true;
 		this.physics.resume();
 		this.startButtonSprite?.destroy();
 		this.startButtonText?.destroy();
+		this.titleSprite?.destroy();
 		this.obstacleTimer.paused = false;
 		this.progressionTimer.paused = false;
 		
@@ -578,17 +591,14 @@ const stage=Phaser.Math.Between(0, 1)
 		.setOrigin(0.5, 0)
 		.setDepth(21);
 		
-		const connectButton = this.add.rectangle(width / 2, y + popupHeight - 40, 160, 40, 0x00ffff)
+		const connectButton = this.add.sprite(width / 2, y + popupHeight - 40, 'ui_elements', 'white_panel')
 			.setOrigin(0.5)
+			.setScale(1.8, 1.2)
 			.setDepth(21);
 			
-		const connectText = this.add.text(width / 2, y + popupHeight - 40, 'CONNECT WALLET', {
-			fontSize: '14px',
-			color: '#000000',
-			fontStyle: 'bold'
-		})
-		.setOrigin(0.5)
-		.setDepth(22);
+		const connectText = this.add.sprite(width / 2, y + popupHeight - 40, 'ui_elements', 'connect_wallet_icon')
+			.setOrigin(0.5)
+			.setDepth(22);
 		
 		const buttonContainer = this.add.container(0, 0, [connectButton, connectText])
 			.setDepth(21)
@@ -596,12 +606,6 @@ const stage=Phaser.Math.Between(0, 1)
 			.on('pointerdown', () => {
 				window.dispatchEvent(new CustomEvent('connect-wallet-request'));
 				this.showRewardPopup();
-			})
-			.on('pointerover', () => {
-				connectButton.setFillStyle(0x33ffff);
-			})
-			.on('pointerout', () => {
-				connectButton.setFillStyle(0x00ffff);
 			});
 	}
 	
@@ -618,26 +622,22 @@ const stage=Phaser.Math.Between(0, 1)
 			.setDepth(30);
 			
 		const messageText = this.add.text(width / 2, y + 60, 'Perfect! We have\nsent you ' + Math.floor(this.score) + ' CBX!', {
-			fontSize: '18px',
+			fontSize: '16px',
 			color: '#666666',
 			align: 'center',
-			fontStyle: 'bold',
 			wordWrap: { width: popupWidth - 40 }
 		})
 		.setOrigin(0.5, 0.5)
 		.setDepth(31);
 		
-		const resetButton = this.add.rectangle(width / 2, y + popupHeight - 40, 120, 30, 0x333333)
+		const resetButton = this.add.sprite(width / 2, y + popupHeight - 40, 'ui_elements', 'white_panel')
 			.setOrigin(0.5)
+			.setScale(1.8, 1.2)
 			.setDepth(31);
 			
-		const resetText = this.add.text(width / 2, y + popupHeight - 40, 'RESET', {
-			fontSize: '14px',
-			color: '#FFFFFF',
-			fontStyle: 'bold'
-		})
-		.setOrigin(0.5)
-		.setDepth(32);
+		const resetText = this.add.sprite(width / 2, y + popupHeight - 40, 'ui_elements', 'play_again_icon')
+			.setOrigin(0.5)
+			.setDepth(32);
 		
 		const buttonContainer = this.add.container(0, 0, [resetButton, resetText])
 			.setDepth(31)
@@ -647,12 +647,6 @@ const stage=Phaser.Math.Between(0, 1)
 				this.progressionTimer.paused = false;
 				this.scene.restart();
 			})
-			.on('pointerover', () => {
-				resetButton.setFillStyle(0x555555);
-			})
-			.on('pointerout', () => {
-				resetButton.setFillStyle(0x333333);
-			});
 	}
 	
 	private handleTouchInput(pointer: Phaser.Input.Pointer): void {

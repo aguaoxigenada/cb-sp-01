@@ -12,6 +12,8 @@ export default class BootScene extends Phaser.Scene {
 
 	this.load.image("loadingBackground", loadingBackground);
   this.load.image("groundBackground", groundBackground);
+  	this.load.atlas('ui_elements', 'assets/images/ui/elements.png', 'assets/images/ui/elements.json');
+	
   }
 
   create() {
