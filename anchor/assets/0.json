@@ -1,0 +1,20 @@
+{
+  "name": "Crypto Beasts",
+  "symbol": "CBX",
+  "description": "An in-game currency for Cryptobeasts on the Solana devnet, used by players to trade, battle, and unlock new adventures in the cryptogaming world.",
+  "image": "0.png",
+  "seller_fee_basis_points": 0,
+  "attributes": [
+    { "trait_type": "Purpose", "value": "Gaming" },
+    { "trait_type": "Game", "value": "Cryptobeasts" }
+  ],
+  "properties": {
+    "files": [
+      {
+        "uri": "0.png",
+        "type": "image/png"
+      }
+    ],
+    "category": "image"
+  }
+}
