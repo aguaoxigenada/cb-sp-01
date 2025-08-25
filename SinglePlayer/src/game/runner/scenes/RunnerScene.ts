@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-
+let hasStarted: boolean = false;
 export default class RunnerScene extends Phaser.Scene {
 	preload() {
 		this.load.atlas("ui_elements", "assets/images/ui/elements.png", "assets/images/ui/elements.json");
@@ -23,7 +23,18 @@ export default class RunnerScene extends Phaser.Scene {
 		this.load.image("night_sky", "assets/images/night/skyBackground.png");
 		this.load.image("night_parallax", "assets/images/night/parallaxBackground1.png");
 		this.load.image("night_ground", "assets/images/night/groundBackground.png");
+
 		this.load.image("title", "assets/images/ui/title.png");
+
+		this.load.image("black_button_background", "assets/images/ui/black_button_background.png");
+		this.load.image("black_panel", "assets/images/ui/black_panel.png");
+		this.load.image("connect_wallet_icon", "assets/images/ui/connect_wallet_icon.png");
+		this.load.image("loading_bars_icon", "assets/images/ui/loading_bars_icon.png");
+		this.load.image("loading_icon", "assets/images/ui/loading_icon.png");
+		this.load.image("play_again_icon", "assets/images/ui/play_again_icon.png");
+		this.load.image("start_icon", "assets/images/ui/start_icon.png");
+		this.load.image("white_button_background", "assets/images/ui/white_button_background.png");
+		this.load.image("white_panel", "assets/images/ui/white_panel.png");
 	}
 	private player!: Phaser.Physics.Arcade.Sprite;
 	private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -471,39 +482,47 @@ export default class RunnerScene extends Phaser.Scene {
 	}
 
 	private showStartScreen(): void {
-		const { width, height } = this.scale;
+		if (hasStarted) {
+			this.loadGame();
+		} else {
+			const { width, height } = this.scale;
 
-		const startBgWidth = 180;
-		const startBgHeight = 40;
-		this.titleSprite = this.add
-			.sprite(width / 2, height / 2 - 20, "title")
-			.setOrigin(0.5)
-			.setScale(0.27)
-			.setDepth(9);
-		this.startButtonSprite = this.add
-			.sprite(width / 2, height / 2 + 20, "ui_elements", "white_panel")
-			.setOrigin(0.5)
-			.setScale(1.5, 1)
-			.setInteractive({ useHandCursor: true })
-			.setDepth(9);
+			const startBgWidth = 180;
+			const startBgHeight = 40;
+			this.titleSprite = this.add
+				.sprite(width / 2, height / 2 - 20, "title")
+				.setOrigin(0.5)
+				.setScale(0.27)
+				.setDepth(9);
+			this.startButtonSprite = this.add
+				.sprite(width / 2, height / 2 + 20, "ui_elements", "white_panel")
+				.setOrigin(0.5)
+				.setScale(1.5, 1)
+				.setInteractive({ useHandCursor: true })
+				.setDepth(9);
 
-		this.startButtonText = this.add
-			.sprite(width / 2, height / 2 + 20, "ui_elements", "start_icon")
-			.setOrigin(0.5)
-			.setDepth(10);
-		this.startButtonSprite.on("pointerdown", () => {
-			this.startGame();
-		});
+			this.startButtonText = this.add
+				.sprite(width / 2, height / 2 + 20, "ui_elements", "start_icon")
+				.setOrigin(0.5)
+				.setDepth(10);
+			this.startButtonSprite.on("pointerdown", () => {
+				this.startGame();
+			});
+		}
 	}
 
-	private startGame(): void {
+	private loadGame(): void {
 		const scoreBgWidth = 180;
 		const scoreBgHeight = 28;
 		const { width, height } = this.scale;
 		const scoreBgX = width - scoreBgWidth - 20;
 		const scoreBgY = 0;
 		//this.add.rectangle(scoreBgX, scoreBgY, scoreBgWidth, scoreBgHeight, 0xffffff, 1).setOrigin(0, 0).setDepth(1);
-		this.add.sprite(scoreBgX, scoreBgY, "ui_elements", "white_panel").setOrigin(0, 0).setDepth(1).setScale(4, 1);
+		this.add
+			.sprite(width - 100, 18, "white_panel")
+			.setOrigin(0.5, 0.5)
+			.setDepth(1)
+			.setScale(4, 1);
 
 		// Score text (top-right)
 		this.scoreText = this.add
@@ -529,11 +548,16 @@ export default class RunnerScene extends Phaser.Scene {
 
 		this.isGameStarted = true;
 		this.physics.resume();
+		this.obstacleTimer.paused = false;
+		this.progressionTimer.paused = false;
+	}
+
+	private startGame(): void {
+		hasStarted = true;
 		this.startButtonSprite?.destroy();
 		this.startButtonText?.destroy();
 		this.titleSprite?.destroy();
-		this.obstacleTimer.paused = false;
-		this.progressionTimer.paused = false;
+		this.loadGame();
 	}
 
 	private showWalletPopup(): void {
@@ -569,11 +593,11 @@ export default class RunnerScene extends Phaser.Scene {
 			.sprite(width / 2, y + popupHeight - 50, "ui_elements", "white_panel")
 			.setOrigin(0.5)
 			.setInteractive({ useHandCursor: true })
-			.setScale(1.8, 1.2)
+			.setScale(1.95, 1.2)
 			.setDepth(21);
 
 		const connectText = this.add
-			.sprite(width / 2, y + popupHeight - 50, "ui_elements", "connect_wallet_icon")
+			.sprite(width / 2, y + popupHeight - 45, "connect_wallet_icon")
 			.setOrigin(0.5)
 			.setDepth(22);
 
