@@ -5,6 +5,19 @@
     "lib": ["es2015"],
     "module": "commonjs",
     "target": "es6",
-    "esModuleInterop": true
-  }
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "declaration": true, // Generate .d.ts files to help with exports
+    "outDir": "./dist", // Specify an output directory for compiled files
+    "sourceMap": true, // Generate source maps for better debugging
+    "baseUrl": ".",
+    "paths": {
+      "@anchor-ping/anchor": ["./src/index.ts"]
+    }
+  },
+  "include": ["src/**/*", "tests-ts/**/*.ts"],
+  "exclude": ["node_modules", "dist", "tests-ts"]
 }
