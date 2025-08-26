@@ -15,6 +15,9 @@ export default class RunnerScene extends Phaser.Scene {
 		this.load.image("groundHazard1", "assets/images/hazards/groundHazard1.png");
 		this.load.image("groundHazard2", "assets/images/hazards/groundHazard2.png");
 		this.load.image("flyingHazard1", "assets/images/hazards/flyingHazard1.png");
+		this.load.image("flyingHazard11", "assets/images/hazards/flyingHazard11.png");
+		this.load.image("flyingHazard12", "assets/images/hazards/flyingHazard12.png");
+
 		this.load.image("parallax_bg", "assets/images/parallaxBackground1.png");
 		this.load.image("parallax_bg2", "assets/images/parallaxBackground2.png");
 		this.load.image("groundBackground", "assets/images/groundBackground.png");
@@ -168,7 +171,12 @@ export default class RunnerScene extends Phaser.Scene {
 			frameRate: 10,
 			repeat: 0,
 		});
-
+		this.anims.create({
+			key: "flyingHazard_anim",
+			frames: [{ key: "flyingHazard11" }, { key: "flyingHazard12" }],
+			frameRate: 6,
+			repeat: -1,
+		});
 		this.player = this.physics.add.sprite(50, 0, "dino_run_1");
 		this.player.setOrigin(0.5, 1);
 		this.player.setScale(this.elementScale);
@@ -192,9 +200,9 @@ export default class RunnerScene extends Phaser.Scene {
 		// .setVisible(true)
 		//  .setTint(0x00ff00);
 
-		this.jumpSound = this.sound.add("jumpSound");
-		this.scoreSound = this.sound.add("scoreSound");
-		this.gameOverSound = this.sound.add("gameOverSound");
+		this.jumpSound = this.sound.add("jumpSound", { volume: 0.1 });
+		this.scoreSound = this.sound.add("scoreSound", { volume: 0.1 });
+		this.gameOverSound = this.sound.add("gameOverSound", { volume: 0.1 });
 
 		this.physics.add.collider(this.player, ground);
 
@@ -259,7 +267,7 @@ export default class RunnerScene extends Phaser.Scene {
 			this.player.body?.touching.down &&
 			!this.isDucking
 		) {
-			this.player.setVelocityY(-300); // smaller initial jump
+			this.player.setVelocityY(-200); // smaller initial jump
 			this.jumpSound.play();
 			this.isJumping = true;
 			this.jumpHoldTime = 0;
@@ -269,7 +277,7 @@ export default class RunnerScene extends Phaser.Scene {
 		if (this.isJumping && (this.cursorSpace.isDown || this.cursorUp.isDown || this.input.activePointer.isDown)) {
 			this.jumpHoldTime += delta;
 			if (this.jumpHoldTime < this.maxJumpHold) {
-				this.player.setVelocityY(this.player.body.velocity.y - 10);
+				this.player.setVelocityY(this.player.body.velocity.y - 12);
 			} else {
 				this.isJumping = false;
 			}
@@ -412,18 +420,16 @@ export default class RunnerScene extends Phaser.Scene {
 	private spawnFlyingObstacle() {
 		const { width, height } = this.scale;
 		const type = Phaser.Math.Between(0, 1);
-		const hazardKey = "flyingHazard1";
-		const obstacle = this.obstacles.create(width + 20, 0, hazardKey).setDisplaySize(75, 29);
+
+		const obstacle = this.obstacles.create(width + 20, 0, "flyingHazard11").setDisplaySize(75, 29);
+		obstacle.play("flyingHazard_anim");
+
 		obstacle.setVelocityX(-this.gameSpeed);
 		obstacle.setImmovable(true);
 		obstacle.setScale(0.5);
 		obstacle.body.setAllowGravity(false);
 		obstacle.setY(height - 55);
 		obstacle.setFlipX(true);
-
-		if (this.hasNegativeFilter) {
-			obstacle.setTint(0x0000ff);
-		}
 	}
 
 	private spawnMixedObstacle() {
@@ -668,6 +674,7 @@ export default class RunnerScene extends Phaser.Scene {
 		if (this.isNightMode) return;
 
 		const { width, height } = this.scale;
+		this.cameras.main.flash(300, 255, 255, 255);
 
 		this.sky.setTexture("night_sky");
 		this.bg.setTexture("night_parallax");
