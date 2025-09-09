@@ -2,6 +2,16 @@ import { Game, Types } from "phaser";
 import RunnerScene from "./runner/scenes/RunnerScene";
 import LoadingScene from "./runner/scenes/LoadingScene";
 import BootScene from "./runner/scenes/BootScene";
+import { EventBus } from "./EventBus";
+import { CBEventSource } from "./eventTypes";
+
+declare global {
+	interface Window {
+		phaserBridge: {
+			send: (msg: any) => void;
+		};
+	}
+}
 
 const config: Types.Core.GameConfig = {
 	type: Phaser.AUTO,
@@ -45,3 +55,7 @@ const StartGame = (parent: GameStartConfig["parent"]): Game => {
 export default StartGame;
 
 StartGame("game-container");
+
+window.phaserBridge = {
+	send: msg => EventBus.emit(CBEventSource.EXTERNAL_MESSAGE, msg),
+};

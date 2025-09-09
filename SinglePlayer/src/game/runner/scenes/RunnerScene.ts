@@ -1,3 +1,5 @@
+import { EventBus } from "@game/EventBus";
+import { CBEvent, CBEventSource, EventTypes } from "@game/eventTypes";
 import Phaser from "phaser";
 let hasStarted: boolean = false;
 export default class RunnerScene extends Phaser.Scene {
@@ -65,9 +67,11 @@ export default class RunnerScene extends Phaser.Scene {
 	private jumpHoldTime: number = 0;
 	private maxJumpHold: number = 150; // ms}
 	private elementScale: number = 1;
+	private currentReward: number = 0;
 	private hasNegativeFilter: boolean = false;
 	private isNightMode: boolean = false;
-
+	private isAuthenticated: boolean = false;
+	private isAllowedToPlay: boolean = false;
 	private startButtonText: Phaser.GameObjects.Text | null = null;
 	private startButtonSprite: Phaser.GameObjects.Sprite | null = null;
 	private titleSprite: Phaser.GameObjects.Sprite | null = null;
@@ -77,6 +81,27 @@ export default class RunnerScene extends Phaser.Scene {
 	private fontFamily: string = '"Press Start 2P", monospace';
 	constructor() {
 		super("RunnerScene");
+		EventBus.on(CBEventSource.EXTERNAL_MESSAGE, ({ type, payload }: CBEvent) => {
+			if (type === EventTypes.EVENT_AUTHENTICATE) {
+				this.isAuthenticated = !!payload.isAuthenticated;
+			} else if (type === EventTypes.EVENT_UNLOCK_GAME) {
+				this.isAllowedToPlay = !!payload.isAllowedToPlay;
+
+				if (this.isAllowedToPlay === true) {
+					if (hasStarted) {
+						this.scene.restart();
+					} else {
+						// Start the game
+						this.startGame();
+					}
+				}
+			} else if (type === EventTypes.EVENT_RECEIVE_REWARD) {
+				const reward = (payload.reward as number) ? payload.reward : 0;
+				this.currentReward = reward;
+				this.currentContainer?.destroy();
+				this.showRewardPopup();
+			}
+		});
 	}
 
 	resizeGame(gameSize: { width: number; height: number }) {
@@ -250,6 +275,7 @@ export default class RunnerScene extends Phaser.Scene {
 			this.isJumping = false;
 		});
 
+		this.showWalletConnection();
 		this.showStartScreen();
 	}
 
@@ -417,6 +443,24 @@ export default class RunnerScene extends Phaser.Scene {
 		}
 	}
 
+	private showWalletConnection() {
+		const text = this.isAuthenticated ? "CONNECTED" : "DISCONNECTED";
+		const width = this.isAuthenticated ? 75 : 85;
+		const scoreBgX = this.isAuthenticated ? 50 : 65;
+		const offsetX = this.isAuthenticated ? 30 : 35;
+		this.add.rectangle(scoreBgX, 18, width, 16, 0xffffff).setOrigin(0.5, 0.5).setDepth(1).setStrokeStyle(1, 0x000000);
+
+		this.add.circle(scoreBgX - offsetX, 18, 3, this.isAuthenticated ? 0x00ff00 : 0xff0000).setDepth(2);
+		this.add
+			.text(scoreBgX + 5, 18, text, {
+				font: "9px font2bitmap",
+				color: this.isAuthenticated ? "#00ff00" : "#ff0000",
+				align: "right",
+			})
+			.setDepth(2)
+			.setOrigin(0.5, 0.5);
+	}
+
 	private spawnFlyingObstacle() {
 		const { width, height } = this.scale;
 		const type = Phaser.Math.Between(0, 1);
@@ -474,14 +518,71 @@ export default class RunnerScene extends Phaser.Scene {
 			localStorage.setItem("hiScore", this.hiScore.toString());
 		}
 		this.gameOverSound.play();
-		window.dispatchEvent(
-			new CustomEvent("phaser-game-over", {
-				detail: { score: Math.floor(this.score) },
-			}),
-		);
-
-		this.showWalletPopup();
+		if (this.isAuthenticated && this.isAllowedToPlay) {
+			// Send final score to the server:
+			this.isAllowedToPlay = false;
+			window.dispatchEvent(
+				new CustomEvent(EventTypes.EVENT_GAME_OVER, {
+					detail: { score: Math.floor(this.score) },
+				}),
+			);
+			// this.showRewardPopup();
+			// TODO: SHOW A LOADING SPINNER
+			this.addLoadingSpinner();
+		} else {
+			this.showWalletPopup();
+		}
 	};
+
+	private currentContainer: Phaser.GameObjects.Container;
+
+	private addLoadingSpinner() {
+		// Create loading spinner with shapes
+		const { width, height } = this.scale;
+
+		// Add black background
+		const loadingBg = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.8);
+		loadingBg.setDepth(25);
+
+		const spinnerRadius = 20;
+		this.currentContainer = this.add.container(width / 2, height / 2);
+		this.currentContainer.setDepth(26);
+
+		// Create dots around a circle
+		const dots: Phaser.GameObjects.Arc[] = [];
+		const numDots = 8;
+
+		for (let i = 0; i < numDots; i++) {
+			const angle = (i / numDots) * Math.PI * 2;
+			const x = Math.cos(angle) * spinnerRadius;
+			const y = Math.sin(angle) * spinnerRadius;
+
+			const dot = this.add.circle(x, y, 3, 0xcacaca);
+			dots.push(dot);
+			this.currentContainer.add(dot);
+		}
+
+		// Animate the spinner
+		this.tweens.add({
+			targets: this.currentContainer,
+			angle: 360,
+			duration: 1000,
+			repeat: -1,
+			ease: "Linear",
+		});
+
+		// Fade in/out effect for dots
+		dots.forEach((dot, index) => {
+			this.tweens.add({
+				targets: dot,
+				alpha: { from: 0.3, to: 1 },
+				duration: 150,
+				delay: index * 125,
+				yoyo: true,
+				repeat: -1,
+			});
+		});
+	}
 
 	private formatScore(score: number): string {
 		return score.toString().padStart(5, "0");
@@ -511,8 +612,17 @@ export default class RunnerScene extends Phaser.Scene {
 				.sprite(width / 2, height / 2 + 20, "ui_elements", "start_icon")
 				.setOrigin(0.5)
 				.setDepth(10);
-			this.startButtonSprite.on("pointerdown", () => {
-				this.startGame();
+			this.startButtonSprite.on("pointerdown", async () => {
+				if (this.isAuthenticated) {
+					// Dispatch the event: event-check-balance
+					// Check on the server if the player has enough balance to play
+					// If the server response is affirmative, then set this.isAllowedToPlay to true
+					// else show an error message : "Insufficient balance to play"
+					window.dispatchEvent(new Event(EventTypes.EVENT_CHECK_BALANCE));
+				} else {
+					// Start Game as host
+					this.startGame();
+				}
 			});
 		}
 	}
@@ -587,7 +697,7 @@ export default class RunnerScene extends Phaser.Scene {
 				width / 2,
 				height / 2 - 20,
 				"font2bitmap",
-				"You won " + Math.floor(this.score) + " tokens!\nConnect your wallet\nto claim them.",
+				"You could have\n earned CBX tokens!\nDon't miss the \nopportunity again!",
 				10,
 				1,
 			)
@@ -595,21 +705,42 @@ export default class RunnerScene extends Phaser.Scene {
 			.setDepth(21)
 			.setTint(0xffffff);
 
+		const popUpStartX = width / 2 - popupWidth / 2;
+
+		const offsetX = 95;
+
 		const connectButton = this.add
-			.sprite(width / 2, y + popupHeight - 50, "ui_elements", "white_panel")
+			.sprite(popUpStartX + offsetX, y + popupHeight - 50, "ui_elements", "white_panel")
 			.setOrigin(0.5)
 			.setInteractive({ useHandCursor: true })
 			.setScale(1.95, 1.2)
 			.setDepth(21);
 
 		const connectText = this.add
-			.sprite(width / 2, y + popupHeight - 45, "connect_wallet_icon")
+			.sprite(popUpStartX + offsetX, y + popupHeight - 45, "connect_wallet_icon")
 			.setOrigin(0.5)
 			.setDepth(22);
 
+		const playAgainButton = this.add
+			.sprite(popUpStartX + popupWidth - offsetX, y + popupHeight - 50, "ui_elements", "white_panel")
+			.setOrigin(0.5)
+			.setInteractive({ useHandCursor: true })
+			.setScale(1.95, 1.2)
+			.setDepth(21);
+
+		const resetText = this.add
+			.sprite(popUpStartX + popupWidth - offsetX, y + popupHeight - 50, "ui_elements", "play_again_icon")
+			.setOrigin(0.5)
+			.setDepth(32);
+
 		connectButton.on("pointerdown", () => {
-			window.dispatchEvent(new CustomEvent("connect-wallet-request"));
-			this.showRewardPopup();
+			// Dispatch event to login into the web3 wallet
+			window.dispatchEvent(new Event(EventTypes.EVENT_CONNECT_WALLET));
+		});
+
+		playAgainButton.on("pointerdown", () => {
+			// Restart the game
+			this.scene.restart();
 		});
 	}
 
@@ -631,7 +762,7 @@ export default class RunnerScene extends Phaser.Scene {
 				width / 2,
 				height / 2 - 20,
 				"font2bitmap",
-				"Perfect! We have\nsent you " + Math.floor(this.score) + " CBX!",
+				"Perfect! We have\nsent you " + Math.floor(this.currentReward) + " CBX!",
 				10,
 				1,
 			)
@@ -650,10 +781,21 @@ export default class RunnerScene extends Phaser.Scene {
 			.sprite(width / 2, y + popupHeight - 50, "ui_elements", "play_again_icon")
 			.setOrigin(0.5)
 			.setDepth(32);
+
 		resetButton.on("pointerdown", () => {
 			this.obstacleTimer.paused = false;
 			this.progressionTimer.paused = false;
-			this.scene.restart();
+
+			if (this.isAuthenticated) {
+				// Dispatch the event: event-check-balance
+				// Check on the server if the player has enough balance to play
+				// If the server response is affirmative, then set this.isAllowedToPlay to true
+				// else show an error message : "Insufficient balance to play"
+				window.dispatchEvent(new Event(EventTypes.EVENT_CHECK_BALANCE));
+			} else {
+				// Start Game as host
+				this.scene.restart();
+			}
 		});
 	}
 
