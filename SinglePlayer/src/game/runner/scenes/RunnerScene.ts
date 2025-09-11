@@ -87,6 +87,8 @@ export default class RunnerScene extends Phaser.Scene {
 		EventBus.on(CBEventSource.EXTERNAL_MESSAGE, ({ type, payload }: CBEvent) => {
 			if (type === EventTypes.EVENT_AUTHENTICATE) {
 				this.isAuthenticated = !!payload.isAuthenticated;
+				this.refreshWalletConnection();
+				this.refreshFeePanel();
 			} else if (type === EventTypes.EVENT_UNLOCK_GAME) {
 				this.isAllowedToPlay = !!payload.isAllowedToPlay;
 				this.baseFee = (payload.baseFee as number) ? payload.baseFee : 200;
@@ -278,7 +280,7 @@ export default class RunnerScene extends Phaser.Scene {
 			this.isJumping = false;
 		});
 
-		this.showWalletConnection();
+		this.refreshWalletConnection();
 		this.showStartScreen();
 	}
 
@@ -446,15 +448,32 @@ export default class RunnerScene extends Phaser.Scene {
 		}
 	}
 
+	private refreshWalletConnection() {
+		this.rectangleWalletBg?.destroy();
+		this.circleWalletStatus?.destroy();
+		this.textWalletStatus?.destroy();
+		this.showWalletConnection();
+	}
+
+	private rectangleWalletBg: Phaser.GameObjects.Rectangle | null = null;
+	private circleWalletStatus: Phaser.GameObjects.Arc | null = null;
+	private textWalletStatus: Phaser.GameObjects.Text | null = null;
+
 	private showWalletConnection() {
 		const text = this.isAuthenticated ? "CONNECTED" : "DISCONNECTED";
 		const width = this.isAuthenticated ? 75 : 85;
 		const scoreBgX = this.isAuthenticated ? 50 : 65;
 		const offsetX = this.isAuthenticated ? 30 : 35;
-		this.add.rectangle(scoreBgX, 18, width, 16, 0xffffff).setOrigin(0.5, 0.5).setDepth(1).setStrokeStyle(1, 0x000000);
+		this.rectangleWalletBg = this.add
+			.rectangle(scoreBgX, 18, width, 16, 0xffffff)
+			.setOrigin(0.5, 0.5)
+			.setDepth(1)
+			.setStrokeStyle(1, 0x000000);
 
-		this.add.circle(scoreBgX - offsetX, 18, 3, this.isAuthenticated ? 0x00ff00 : 0xff0000).setDepth(2);
-		this.add
+		this.circleWalletStatus = this.add
+			.circle(scoreBgX - offsetX, 18, 3, this.isAuthenticated ? 0x00ff00 : 0xff0000)
+			.setDepth(2);
+		this.textWalletStatus = this.add
 			.text(scoreBgX + 5, 18, text, {
 				font: "9px font2bitmap",
 				color: this.isAuthenticated ? "#00ff00" : "#ff0000",
@@ -531,8 +550,8 @@ export default class RunnerScene extends Phaser.Scene {
 			);
 			this.addLoadingSpinner();
 		} else {
-			// this.showWalletPopup();
-			this.showRewardPopup();
+			this.showWalletPopup();
+			// this.showRewardPopup();
 		}
 	};
 
@@ -614,7 +633,7 @@ export default class RunnerScene extends Phaser.Scene {
 				.setDepth(10);
 
 			if (this.isAuthenticated) {
-				this.displayFeePanelStart();
+				this.refreshFeePanel();
 			}
 
 			this.startButtonSprite.on("pointerdown", async () => {
@@ -632,15 +651,24 @@ export default class RunnerScene extends Phaser.Scene {
 		}
 	}
 
+	private refreshFeePanel() {
+		this.feePanel?.destroy();
+		this.feeText?.destroy();
+		if (this.isAuthenticated) {
+			this.displayFeePanelStart();
+		}
+	}
+
 	private displayFeePanelStart() {
+		const feeBgX = this.isAuthenticated ? -10 : 0;
 		this.feePanel = this.add
-			.rectangle(23, 40, 120, 15, 0xffffff)
+			.rectangle(23 + feeBgX, 40, 120, 15, 0xffffff)
 			.setOrigin(0, 0.5)
 			.setDepth(100)
 			.setStrokeStyle(1, 0x000000);
 
 		this.feeText = this.add
-			.bitmapText(23, 40, "font2bitmap", `Fee: ${this.baseFee} BST`, 10)
+			.bitmapText(23 + feeBgX, 40, "font2bitmap", `Fee: ${this.baseFee} BST`, 10)
 			.setOrigin(0, 0.5)
 			.setDepth(10)
 			.setLetterSpacing(0)
