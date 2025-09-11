@@ -72,9 +72,12 @@ export default class RunnerScene extends Phaser.Scene {
 	private isNightMode: boolean = false;
 	private isAuthenticated: boolean = false;
 	private isAllowedToPlay: boolean = false;
+	private baseFee: number = 200;
 	private startButtonText: Phaser.GameObjects.Text | null = null;
 	private startButtonSprite: Phaser.GameObjects.Sprite | null = null;
 	private titleSprite: Phaser.GameObjects.Sprite | null = null;
+	private feeText: Phaser.GameObjects.BitmapText | null = null;
+	private feePanel: Phaser.GameObjects.Rectangle | null = null;
 
 	private sky!: Phaser.GameObjects.TileSprite;
 	private bg!: Phaser.GameObjects.TileSprite;
@@ -86,7 +89,7 @@ export default class RunnerScene extends Phaser.Scene {
 				this.isAuthenticated = !!payload.isAuthenticated;
 			} else if (type === EventTypes.EVENT_UNLOCK_GAME) {
 				this.isAllowedToPlay = !!payload.isAllowedToPlay;
-
+				this.baseFee = (payload.baseFee as number) ? payload.baseFee : 200;
 				if (this.isAllowedToPlay === true) {
 					if (hasStarted) {
 						this.scene.restart();
@@ -526,11 +529,10 @@ export default class RunnerScene extends Phaser.Scene {
 					detail: { score: Math.floor(this.score) },
 				}),
 			);
-			// this.showRewardPopup();
-			// TODO: SHOW A LOADING SPINNER
 			this.addLoadingSpinner();
 		} else {
-			this.showWalletPopup();
+			// this.showWalletPopup();
+			this.showRewardPopup();
 		}
 	};
 
@@ -594,8 +596,6 @@ export default class RunnerScene extends Phaser.Scene {
 		} else {
 			const { width, height } = this.scale;
 
-			const startBgWidth = 180;
-			const startBgHeight = 40;
 			this.titleSprite = this.add
 				.sprite(width / 2, height / 2 - 20, "title")
 				.setOrigin(0.5)
@@ -612,6 +612,11 @@ export default class RunnerScene extends Phaser.Scene {
 				.sprite(width / 2, height / 2 + 20, "ui_elements", "start_icon")
 				.setOrigin(0.5)
 				.setDepth(10);
+
+			if (this.isAuthenticated) {
+				this.displayFeePanelStart();
+			}
+
 			this.startButtonSprite.on("pointerdown", async () => {
 				if (this.isAuthenticated) {
 					// Dispatch the event: event-check-balance
@@ -625,6 +630,37 @@ export default class RunnerScene extends Phaser.Scene {
 				}
 			});
 		}
+	}
+
+	private displayFeePanelStart() {
+		this.feePanel = this.add
+			.rectangle(23, 40, 120, 15, 0xffffff)
+			.setOrigin(0, 0.5)
+			.setDepth(100)
+			.setStrokeStyle(1, 0x000000);
+
+		this.feeText = this.add
+			.bitmapText(23, 40, "font2bitmap", `Fee: ${this.baseFee} BST`, 10)
+			.setOrigin(0, 0.5)
+			.setDepth(10)
+			.setLetterSpacing(0)
+			.setTint(0x000000)
+			.setDepth(100);
+	}
+
+	private displayFeePanelGameOver() {
+		const { width, height } = this.scale;
+		this.feePanel = this.add
+			.rectangle(width / 2, height / 2 + 5, 120, 15, 0xffffff)
+			.setOrigin(0.5)
+			.setDepth(100);
+		this.feeText = this.add
+			.bitmapText(width / 2, height / 2 + 5, "font2bitmap", `Fee: ${this.baseFee} BST`, 10)
+			.setOrigin(0.5, 0.5)
+			.setDepth(10)
+			.setLetterSpacing(0)
+			.setTint(0x000000)
+			.setDepth(100);
 	}
 
 	private loadGame(): void {
@@ -673,6 +709,8 @@ export default class RunnerScene extends Phaser.Scene {
 		this.startButtonSprite?.destroy();
 		this.startButtonText?.destroy();
 		this.titleSprite?.destroy();
+		this.feePanel?.destroy();
+		this.feeText?.destroy();
 		this.loadGame();
 	}
 
@@ -697,7 +735,7 @@ export default class RunnerScene extends Phaser.Scene {
 				width / 2,
 				height / 2 - 20,
 				"font2bitmap",
-				"You could have\n earned CBX tokens!\nDon't miss the \nopportunity again!",
+				"You could have\n earned BST tokens!\nDon't miss the \nopportunity again!",
 				10,
 				1,
 			)
@@ -754,7 +792,7 @@ export default class RunnerScene extends Phaser.Scene {
 
 		const popupBg = this.add
 			.sprite(width / 2, height / 2, "ui_elements", "black_panel")
-			.setScale(5, 4)
+			.setScale(5, 4.25)
 			.setOrigin(0.5, 0.5)
 			.setDepth(30);
 		const messageText = this.add
@@ -762,7 +800,7 @@ export default class RunnerScene extends Phaser.Scene {
 				width / 2,
 				height / 2 - 20,
 				"font2bitmap",
-				"Perfect! We have\nsent you " + Math.floor(this.currentReward) + " CBX!",
+				"Perfect! We have\nsent you " + Math.floor(this.currentReward) + " BST!",
 				10,
 				1,
 			)
@@ -771,16 +809,20 @@ export default class RunnerScene extends Phaser.Scene {
 			.setTint(0xffffff);
 
 		const resetButton = this.add
-			.sprite(width / 2, y + popupHeight - 50, "ui_elements", "white_panel")
+			.sprite(width / 2, y + popupHeight - 40, "ui_elements", "white_panel")
 			.setOrigin(0.5)
 			.setScale(1.8, 1.2)
 			.setInteractive({ useHandCursor: true })
 			.setDepth(31);
 
 		const resetText = this.add
-			.sprite(width / 2, y + popupHeight - 50, "ui_elements", "play_again_icon")
+			.sprite(width / 2, y + popupHeight - 40, "ui_elements", "play_again_icon")
 			.setOrigin(0.5)
 			.setDepth(32);
+
+		this.displayFeePanelGameOver();
+		if (this.isAuthenticated) {
+		}
 
 		resetButton.on("pointerdown", () => {
 			this.obstacleTimer.paused = false;
