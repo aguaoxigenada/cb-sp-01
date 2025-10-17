@@ -46,7 +46,7 @@ export default class RunnerScene extends Phaser.Scene {
 	private obstacles!: Phaser.Physics.Arcade.Group;
 	private score: number = 0;
 	private scoreText!: Phaser.GameObjects.Text;
-	private gameSpeed: number = 200;
+	private gameSpeed: number = 120;
 	//private walletAddress: string = "0x123...";
 	private isGameOver: boolean = false;
 	private isDucking: boolean = false;
@@ -145,7 +145,7 @@ export default class RunnerScene extends Phaser.Scene {
 		this.isGameStarted = false;
 		this.score = 0;
 		this.physics.pause();
-		this.gameSpeed = 200;
+		this.gameSpeed = 180; // Slightly slower initial speed but will ramp up faster
 
 		const runFrames = [];
 		for (let i = 1; i <= 8; i++) {
@@ -242,22 +242,22 @@ export default class RunnerScene extends Phaser.Scene {
 			allowGravity: false,
 			immovable: true,
 		});
-		// Initial obstacle spawn
+		// Initial obstacle spawn - reduced delay for more difficulty
 		this.obstacleTimer = this.time.addEvent({
-			delay: 1500,
+			delay: 1800,
 			callback: this.spawnObstacle,
 			callbackScope: this,
 			loop: true,
 			paused: true,
 		});
 
-		// Difficulty progression every 10s
+		// Difficulty progression every 15s - more frequent and aggressive
 		this.progressionTimer = this.time.addEvent({
-			delay: 10000,
+			delay: 15000,
 			paused: true,
 			callback: () => {
-				this.gameSpeed += 60;
-				const newDelay = Math.max(500, this.obstacleTimer.delay - 100);
+				this.gameSpeed += 50; // Increased speed increment
+				const newDelay = Math.max(600, this.obstacleTimer.delay - 100); // More aggressive delay reduction
 				this.obstacleTimer.remove(false);
 				this.obstacleTimer = this.time.addEvent({
 					delay: newDelay,
@@ -298,7 +298,7 @@ export default class RunnerScene extends Phaser.Scene {
 			this.player.body?.touching.down &&
 			!this.isDucking
 		) {
-			this.player.setVelocityY(-200); // smaller initial jump
+			this.player.setVelocityY(-180); // smaller initial jump
 			this.jumpSound.play();
 			this.isJumping = true;
 			this.jumpHoldTime = 0;
@@ -363,8 +363,12 @@ export default class RunnerScene extends Phaser.Scene {
 		const currentRoundedScore = Math.floor(this.score);
 		this.scoreText.setText(this.formatScore(Math.floor(currentRoundedScore)));
 
-		if (currentRoundedScore >= 500 && !this.isNightMode) {
+		// Day/night cycling every 500 points
+		const shouldBeNightMode = Math.floor(currentRoundedScore / 500) % 2 === 1;
+		if (shouldBeNightMode && !this.isNightMode) {
 			this.switchToNightMode();
+		} else if (!shouldBeNightMode && this.isNightMode) {
+			this.switchToDayMode();
 		}
 
 		// Update milestone + blink
@@ -397,36 +401,28 @@ export default class RunnerScene extends Phaser.Scene {
 	}
 
 	private spawnObstacle() {
-		//const stage = Math.floor(this.score / 200);
-		const stage = Phaser.Math.Between(0, 1);
-		switch (stage) {
-			case 0:
-				this.spawnGroundObstacle();
-				break;
+		// Initial phase: only ground obstacles for first 300 points
+		if (this.score < 300) {
+			this.spawnGroundObstacle();
+			return;
+		}
 
-			case 1:
-				this.spawnFlyingObstacle();
-				break;
-
-			default:
-				// Weighted mix
-				const type = Phaser.Math.Between(0, 99);
-				if (type < 60) {
-					this.spawnGroundObstacle(); // 60%
-				} else if (type < 80) {
-					this.spawnFlyingObstacle(); // 20%
-				} else {
-					this.spawnMixedObstacle(); // 20%
-				}
-				break;
+		// After initial phase, use weighted random selection
+		const type = Phaser.Math.Between(0, 99);
+		if (type < 50) {
+			this.spawnGroundObstacle(); // 50%
+		} else if (type < 80) {
+			this.spawnFlyingObstacle(); // 30%
+		} else {
+			this.spawnMixedObstacle(); // 20%
 		}
 	}
 
 	private spawnGroundObstacle() {
 		const { width, height } = this.scale;
 
-		const isEarlyGame = this.score < 100;
-		const count = isEarlyGame ? 1 : Phaser.Math.Between(1, 3);
+		const isEarlyGame = this.score < 200;
+		const count = isEarlyGame ? 1 : Phaser.Math.Between(1, 2);
 		const spacing = 22;
 
 		for (let i = 0; i < count; i++) {
@@ -440,7 +436,8 @@ export default class RunnerScene extends Phaser.Scene {
 			obstacle.setVelocityX(-this.gameSpeed);
 			obstacle.setImmovable(true);
 			obstacle.body.setAllowGravity(false);
-			obstacle.setY(height - 20);
+			// Fixed positioning to align with ground level
+			obstacle.setY(height - 22);
 
 			if (this.hasNegativeFilter) {
 				obstacle.setTint(0x0000ff);
@@ -501,15 +498,16 @@ export default class RunnerScene extends Phaser.Scene {
 	private spawnMixedObstacle() {
 		const { width, height } = this.scale;
 		const type = Phaser.Math.Between(0, 1);
-		const hazardKey = type === 0 ? "groundHazard1" : "flyingHazard1";
+		const hazardKey = type === 0 ? "groundHazard1" : "flyingHazard11";
 		const obstacle = this.obstacles.create(width + 20, 0, hazardKey).setDisplaySize(40, 40);
 		obstacle.setVelocityX(-this.gameSpeed);
 		obstacle.setImmovable(true);
 		obstacle.setScale(0.5);
 
 		obstacle.body.setAllowGravity(false);
-		obstacle.setY(type === 0 ? height - 30 : height - 60);
-		if (hazardKey === "flyingHazard1") {
+		obstacle.setY(type === 0 ? height - 22 : height - 55);
+		if (hazardKey === "flyingHazard11") {
+			obstacle.play("flyingHazard_anim"); // Fixed: Add animation for flying obstacles
 			obstacle.setFlipX(true);
 		} else {
 			Math.random() > 0.5 ? obstacle.setScale(0.5) : obstacle.setScale(0.5, 1);
@@ -875,7 +873,7 @@ export default class RunnerScene extends Phaser.Scene {
 		const { height } = this.scale;
 
 		if (this.player.body?.touching.down && !this.isDucking) {
-			this.player.setVelocityY(-300);
+			this.player.setVelocityY(-250);
 			this.jumpSound.play();
 			this.isJumping = true;
 			this.jumpHoldTime = 0;
@@ -893,5 +891,18 @@ export default class RunnerScene extends Phaser.Scene {
 		this.ground.setTexture("night_ground");
 
 		this.isNightMode = true;
+	}
+
+	private switchToDayMode(): void {
+		if (!this.isNightMode) return;
+
+		const { width, height } = this.scale;
+		this.cameras.main.flash(300, 255, 255, 255);
+
+		this.sky.setTexture("skyBackground");
+		this.bg.setTexture("parallax_bg");
+		this.ground.setTexture("groundBackground");
+
+		this.isNightMode = false;
 	}
 }
