@@ -88,7 +88,10 @@ export default class RunnerScene extends Phaser.Scene {
 			if (type === EventTypes.EVENT_AUTHENTICATE) {
 				this.isAuthenticated = !!payload.isAuthenticated;
 				this.refreshWalletConnection();
-				this.refreshFeePanel();
+
+				if (this.cache.bitmapFont.exists("font2bitmap")) {
+					this.refreshFeePanel();
+				}
 			} else if (type === EventTypes.EVENT_UNLOCK_GAME) {
 				this.isAllowedToPlay = !!payload.isAllowedToPlay;
 				this.baseFee = (payload.baseFee as number) ? payload.baseFee : 200;
