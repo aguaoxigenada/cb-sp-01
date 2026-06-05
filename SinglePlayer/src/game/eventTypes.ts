@@ -1,5 +1,5 @@
 export enum CBEventSource {
-	EXTERNAL_MESSAGE = "recieved-external-message",
+	EXTERNAL_MESSAGE = "received-external-message",
 	PHASER_MESSAGE = "send-external-message",
 }
 

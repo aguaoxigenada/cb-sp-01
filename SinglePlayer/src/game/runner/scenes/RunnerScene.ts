@@ -45,9 +45,8 @@ export default class RunnerScene extends Phaser.Scene {
 	private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
 	private obstacles!: Phaser.Physics.Arcade.Group;
 	private score: number = 0;
-	private scoreText!: Phaser.GameObjects.Text;
+	private scoreText!: Phaser.GameObjects.BitmapText;
 	private gameSpeed: number = 120;
-	//private walletAddress: string = "0x123...";
 	private isGameOver: boolean = false;
 	private isDucking: boolean = false;
 	private obstacleTimer!: Phaser.Time.TimerEvent;
@@ -55,7 +54,7 @@ export default class RunnerScene extends Phaser.Scene {
 	private ground!: Phaser.GameObjects.TileSprite;
 	private isGameStarted: boolean = false;
 	private hiScore: number = 0;
-	private hiScoreText: Phaser.GameObjects.Text;
+	private hiScoreText!: Phaser.GameObjects.BitmapText;
 	private milestoneCheckpoint: number = 0;
 	private jumpSound!: Phaser.Sound.BaseSound;
 	private scoreSound!: Phaser.Sound.BaseSound;
@@ -65,7 +64,7 @@ export default class RunnerScene extends Phaser.Scene {
 	private cursorSpace!: Phaser.Input.Keyboard.Key;
 	private isJumping: boolean = false;
 	private jumpHoldTime: number = 0;
-	private maxJumpHold: number = 150; // ms}
+	private maxJumpHold: number = 150; // ms
 	private elementScale: number = 1;
 	private currentReward: number = 0;
 	private hasNegativeFilter: boolean = false;
@@ -73,7 +72,7 @@ export default class RunnerScene extends Phaser.Scene {
 	private isAuthenticated: boolean = false;
 	private isAllowedToPlay: boolean = false;
 	private baseFee: number = 200;
-	private startButtonText: Phaser.GameObjects.Text | null = null;
+	private startButtonText: Phaser.GameObjects.Sprite | null = null;
 	private startButtonSprite: Phaser.GameObjects.Sprite | null = null;
 	private titleSprite: Phaser.GameObjects.Sprite | null = null;
 	private feeText: Phaser.GameObjects.BitmapText | null = null;
@@ -84,55 +83,54 @@ export default class RunnerScene extends Phaser.Scene {
 	private fontFamily: string = '"Press Start 2P", monospace';
 	constructor() {
 		super("RunnerScene");
-		EventBus.on(CBEventSource.EXTERNAL_MESSAGE, ({ type, payload }: CBEvent) => {
-			if (type === EventTypes.EVENT_AUTHENTICATE) {
-				this.isAuthenticated = !!payload.isAuthenticated;
-				this.refreshWalletConnection();
-
-				if (this.cache.bitmapFont.exists("font2bitmap")) {
-					this.refreshFeePanel();
-				}
-			} else if (type === EventTypes.EVENT_UNLOCK_GAME) {
-				this.isAllowedToPlay = !!payload.isAllowedToPlay;
-				this.baseFee = (payload.baseFee as number) ? payload.baseFee : 200;
-				if (this.isAllowedToPlay === true) {
-					if (hasStarted) {
-						this.scene.restart();
-					} else {
-						// Start the game
-						this.startGame();
-					}
-				}
-			} else if (type === EventTypes.EVENT_RECEIVE_REWARD) {
-				const reward = (payload.reward as number) ? payload.reward : 0;
-				this.currentReward = reward;
-				this.currentContainer?.destroy();
-				this.showRewardPopup();
-			}
-		});
 	}
 
-	resizeGame(gameSize: { width: number; height: number }) {
-		const baseWidth = 600;
-		const baseHeight = 150;
-		const scaleX = gameSize.width / baseWidth;
-		const scaleY = gameSize.height / baseHeight;
-		const scale = Math.min(scaleX, scaleY);
+	// Handles messages pushed in from the host page (wallet auth, balance unlock, rewards).
+	private handleExternalMessage = ({ type, payload }: CBEvent) => {
+		if (type === EventTypes.EVENT_AUTHENTICATE) {
+			this.isAuthenticated = !!payload.isAuthenticated;
+			this.refreshWalletConnection();
 
+			if (this.cache.bitmapFont.exists("font2bitmap")) {
+				this.refreshFeePanel();
+			}
+		} else if (type === EventTypes.EVENT_UNLOCK_GAME) {
+			this.isAllowedToPlay = !!payload.isAllowedToPlay;
+			this.baseFee = (payload.baseFee as number) ? payload.baseFee : 200;
+			if (this.isAllowedToPlay === true) {
+				if (hasStarted) {
+					this.scene.restart();
+				} else {
+					this.startGame();
+				}
+			}
+		} else if (type === EventTypes.EVENT_RECEIVE_REWARD) {
+			const reward = (payload.reward as number) ? payload.reward : 0;
+			this.currentReward = reward;
+			this.currentContainer?.destroy();
+			this.showRewardPopup();
+		}
+	};
+
+	resizeGame() {
 		this.cameras.main.setZoom(1);
 	}
 
 	create() {
 		this.scale.on("resize", this.resizeGame, this);
-		this.resizeGame({ width: this.scale.width, height: this.scale.height });
+		this.resizeGame();
+
+		// Listen for host-page messages, and tear the listener down when the scene shuts down/restarts.
+		EventBus.on(CBEventSource.EXTERNAL_MESSAGE, this.handleExternalMessage);
+		this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+			EventBus.off(CBEventSource.EXTERNAL_MESSAGE, this.handleExternalMessage);
+		});
 
 		this.isNightMode = false;
 
 		const { width, height } = this.scale;
 		this.sky = this.add.tileSprite(0, 0, width, height, "skyBackground").setOrigin(0, 0).setScrollFactor(0);
 		this.bg = this.add.tileSprite(0, 0, width, height, "parallax_bg").setOrigin(0, 0).setScrollFactor(0);
-
-		//this.cameras.main.setBackgroundColor("#f4f4f4");
 
 		this.ground = this.add.tileSprite(0, 0, width, height, "groundBackground").setOrigin(0, 0).setScrollFactor(0);
 
@@ -230,8 +228,6 @@ export default class RunnerScene extends Phaser.Scene {
 			.setDisplaySize(width, groundHeight)
 			.setVisible(false)
 			.refreshBody();
-		// .setVisible(true)
-		//  .setTint(0x00ff00);
 
 		this.jumpSound = this.sound.add("jumpSound", { volume: 0.1 });
 		this.scoreSound = this.sound.add("scoreSound", { volume: 0.1 });
@@ -240,7 +236,6 @@ export default class RunnerScene extends Phaser.Scene {
 		this.physics.add.collider(this.player, ground);
 
 		// Obstacles group
-		//this.obstacles = this.physics.add.group();
 		this.obstacles = this.physics.add.group({
 			allowGravity: false,
 			immovable: true,
@@ -275,8 +270,8 @@ export default class RunnerScene extends Phaser.Scene {
 		// Collision check
 		this.physics.add.collider(this.player, this.obstacles, this.handleGameOver, undefined, this);
 
-		this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-			this.handleTouchInput(pointer);
+		this.input.on("pointerdown", () => {
+			this.handleTouchInput();
 		});
 
 		this.input.on("pointerup", () => {
@@ -324,14 +319,14 @@ export default class RunnerScene extends Phaser.Scene {
 				this.player.play("jump_down", true);
 			}
 			this.player.setOrigin(0.5, 1);
-			this.player.body.allowGravity = true;
+			(this.player.body as Phaser.Physics.Arcade.Body).setAllowGravity(true);
 			this.player.setScale(this.elementScale);
 			this.player.body.setSize(24, 32);
 			this.player.body.setOffset(12, 8);
 		} else if (!this.isDucking) {
 			this.player.play("run", true);
 			this.player.setOrigin(0.5, 1);
-			this.player.body.allowGravity = true;
+			(this.player.body as Phaser.Physics.Arcade.Body).setAllowGravity(true);
 			this.player.setScale(this.elementScale);
 			this.player.body.setSize(24, 32);
 			this.player.body.setOffset(12, 8);
@@ -352,11 +347,11 @@ export default class RunnerScene extends Phaser.Scene {
 		}
 
 		// Stand (on key release)
-		if ((Phaser.Input.Keyboard.JustUp(this.cursorDown) || this.input.activePointer.justUp) && this.isDucking) {
+		if (Phaser.Input.Keyboard.JustUp(this.cursorDown) && this.isDucking) {
 			this.isDucking = false;
 			this.player.play("run", true);
 			this.player.setOrigin(0.5, 1);
-			this.player.body.allowGravity = true;
+			(this.player.body as Phaser.Physics.Arcade.Body).setAllowGravity(true);
 			this.player.setScale(this.elementScale);
 			this.player.body.setSize(24, 32);
 			this.player.body.setOffset(12, 8);
@@ -485,7 +480,6 @@ export default class RunnerScene extends Phaser.Scene {
 
 	private spawnFlyingObstacle() {
 		const { width, height } = this.scale;
-		const type = Phaser.Math.Between(0, 1);
 
 		const obstacle = this.obstacles.create(width + 20, 0, "flyingHazard11").setDisplaySize(75, 29);
 		obstacle.play("flyingHazard_anim");
@@ -552,7 +546,6 @@ export default class RunnerScene extends Phaser.Scene {
 			this.addLoadingSpinner();
 		} else {
 			this.showWalletPopup();
-			// this.showRewardPopup();
 		}
 	};
 
@@ -693,12 +686,7 @@ export default class RunnerScene extends Phaser.Scene {
 	}
 
 	private loadGame(): void {
-		const scoreBgWidth = 180;
-		const scoreBgHeight = 28;
-		const { width, height } = this.scale;
-		const scoreBgX = width - scoreBgWidth - 20;
-		const scoreBgY = 0;
-		//this.add.rectangle(scoreBgX, scoreBgY, scoreBgWidth, scoreBgHeight, 0xffffff, 1).setOrigin(0, 0).setDepth(1);
+		const { width } = this.scale;
 		this.add
 			.sprite(width - 100, 18, "white_panel")
 			.setOrigin(0.5, 0.5)
@@ -750,16 +738,15 @@ export default class RunnerScene extends Phaser.Scene {
 
 		const popupWidth = 300;
 		const popupHeight = 150;
-		const x = width / 2 - popupWidth / 2;
 		const y = height / 2 - popupHeight / 2;
 
-		const popupBg = this.add
+		this.add
 			.sprite(width / 2, height / 2, "ui_elements", "black_panel")
 			.setScale(5, 4)
 			.setOrigin(0.5, 0.5)
 			.setDepth(20);
 
-		const messageText = this.add
+		this.add
 			.bitmapText(
 				width / 2,
 				height / 2 - 20,
@@ -783,7 +770,7 @@ export default class RunnerScene extends Phaser.Scene {
 			.setScale(1.95, 1.2)
 			.setDepth(21);
 
-		const connectText = this.add
+		this.add
 			.sprite(popUpStartX + offsetX, y + popupHeight - 45, "connect_wallet_icon")
 			.setOrigin(0.5)
 			.setDepth(22);
@@ -795,7 +782,7 @@ export default class RunnerScene extends Phaser.Scene {
 			.setScale(1.95, 1.2)
 			.setDepth(21);
 
-		const resetText = this.add
+		this.add
 			.sprite(popUpStartX + popupWidth - offsetX, y + popupHeight - 50, "ui_elements", "play_again_icon")
 			.setOrigin(0.5)
 			.setDepth(32);
@@ -816,15 +803,14 @@ export default class RunnerScene extends Phaser.Scene {
 
 		const popupWidth = 300;
 		const popupHeight = 150;
-		const x = width / 2 - popupWidth / 2;
 		const y = height / 2 - popupHeight / 2;
 
-		const popupBg = this.add
+		this.add
 			.sprite(width / 2, height / 2, "ui_elements", "black_panel")
 			.setScale(5, 4.25)
 			.setOrigin(0.5, 0.5)
 			.setDepth(30);
-		const messageText = this.add
+		this.add
 			.bitmapText(
 				width / 2,
 				height / 2 - 20,
@@ -844,14 +830,12 @@ export default class RunnerScene extends Phaser.Scene {
 			.setInteractive({ useHandCursor: true })
 			.setDepth(31);
 
-		const resetText = this.add
+		this.add
 			.sprite(width / 2, y + popupHeight - 40, "ui_elements", "play_again_icon")
 			.setOrigin(0.5)
 			.setDepth(32);
 
 		this.displayFeePanelGameOver();
-		if (this.isAuthenticated) {
-		}
 
 		resetButton.on("pointerdown", () => {
 			this.obstacleTimer.paused = false;
@@ -870,10 +854,8 @@ export default class RunnerScene extends Phaser.Scene {
 		});
 	}
 
-	private handleTouchInput(pointer: Phaser.Input.Pointer): void {
+	private handleTouchInput(): void {
 		if (this.isGameOver || !this.isGameStarted) return;
-
-		const { height } = this.scale;
 
 		if (this.player.body?.touching.down && !this.isDucking) {
 			this.player.setVelocityY(-250);
@@ -886,7 +868,6 @@ export default class RunnerScene extends Phaser.Scene {
 	private switchToNightMode(): void {
 		if (this.isNightMode) return;
 
-		const { width, height } = this.scale;
 		this.cameras.main.flash(300, 255, 255, 255);
 
 		this.sky.setTexture("night_sky");
@@ -899,7 +880,6 @@ export default class RunnerScene extends Phaser.Scene {
 	private switchToDayMode(): void {
 		if (!this.isNightMode) return;
 
-		const { width, height } = this.scale;
 		this.cameras.main.flash(300, 255, 255, 255);
 
 		this.sky.setTexture("skyBackground");
