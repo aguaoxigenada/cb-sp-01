@@ -1,5 +1,8 @@
 import { EventBus } from "@game/EventBus";
-import { CBEvent, CBEventSource, EventTypes } from "@game/eventTypes";
+import { CBEventSource, EventTypes, ExternalMessage } from "@game/eventTypes";
+import { GAMEPLAY, PLAYER_POSES, PlayerPose } from "@game/runner/constants";
+import { ObstacleSpawner } from "@game/runner/ObstacleSpawner";
+import { formatScore } from "@game/utils";
 import Phaser from "phaser";
 let hasStarted: boolean = false;
 export default class RunnerScene extends Phaser.Scene {
@@ -44,6 +47,7 @@ export default class RunnerScene extends Phaser.Scene {
 	private player!: Phaser.Physics.Arcade.Sprite;
 	private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
 	private obstacles!: Phaser.Physics.Arcade.Group;
+	private spawner!: ObstacleSpawner;
 	private score: number = 0;
 	private scoreText!: Phaser.GameObjects.BitmapText;
 	private gameSpeed: number = 120;
@@ -64,7 +68,7 @@ export default class RunnerScene extends Phaser.Scene {
 	private cursorSpace!: Phaser.Input.Keyboard.Key;
 	private isJumping: boolean = false;
 	private jumpHoldTime: number = 0;
-	private maxJumpHold: number = 150; // ms
+	private maxJumpHold: number = GAMEPLAY.maxJumpHold;
 	private elementScale: number = 1;
 	private currentReward: number = 0;
 	private hasNegativeFilter: boolean = false;
@@ -80,35 +84,39 @@ export default class RunnerScene extends Phaser.Scene {
 
 	private sky!: Phaser.GameObjects.TileSprite;
 	private bg!: Phaser.GameObjects.TileSprite;
-	private fontFamily: string = '"Press Start 2P", monospace';
 	constructor() {
 		super("RunnerScene");
 	}
 
 	// Handles messages pushed in from the host page (wallet auth, balance unlock, rewards).
-	private handleExternalMessage = ({ type, payload }: CBEvent) => {
-		if (type === EventTypes.EVENT_AUTHENTICATE) {
-			this.isAuthenticated = !!payload.isAuthenticated;
-			this.refreshWalletConnection();
+	private handleExternalMessage = (message: ExternalMessage) => {
+		switch (message.type) {
+			case EventTypes.EVENT_AUTHENTICATE:
+				this.isAuthenticated = message.payload.isAuthenticated;
+				this.refreshWalletConnection();
 
-			if (this.cache.bitmapFont.exists("font2bitmap")) {
-				this.refreshFeePanel();
-			}
-		} else if (type === EventTypes.EVENT_UNLOCK_GAME) {
-			this.isAllowedToPlay = !!payload.isAllowedToPlay;
-			this.baseFee = (payload.baseFee as number) ? payload.baseFee : 200;
-			if (this.isAllowedToPlay === true) {
-				if (hasStarted) {
-					this.scene.restart();
-				} else {
-					this.startGame();
+				if (this.cache.bitmapFont.exists("font2bitmap")) {
+					this.refreshFeePanel();
 				}
-			}
-		} else if (type === EventTypes.EVENT_RECEIVE_REWARD) {
-			const reward = (payload.reward as number) ? payload.reward : 0;
-			this.currentReward = reward;
-			this.currentContainer?.destroy();
-			this.showRewardPopup();
+				break;
+
+			case EventTypes.EVENT_UNLOCK_GAME:
+				this.isAllowedToPlay = message.payload.isAllowedToPlay;
+				this.baseFee = message.payload.baseFee || 200;
+				if (this.isAllowedToPlay) {
+					if (hasStarted) {
+						this.scene.restart();
+					} else {
+						this.startGame();
+					}
+				}
+				break;
+
+			case EventTypes.EVENT_RECEIVE_REWARD:
+				this.currentReward = message.payload.reward;
+				this.currentContainer?.destroy();
+				this.showRewardPopup();
+				break;
 		}
 	};
 
@@ -146,7 +154,7 @@ export default class RunnerScene extends Phaser.Scene {
 		this.isGameStarted = false;
 		this.score = 0;
 		this.physics.pause();
-		this.gameSpeed = 180; // Slightly slower initial speed but will ramp up faster
+		this.gameSpeed = GAMEPLAY.startSpeed;
 
 		const runFrames = [];
 		for (let i = 1; i <= 8; i++) {
@@ -211,8 +219,8 @@ export default class RunnerScene extends Phaser.Scene {
 		this.player = this.physics.add.sprite(50, 0, "dino_run_1");
 		this.player.setOrigin(0.5, 1);
 		this.player.setScale(this.elementScale);
-		this.player.body.setSize(48, 56);
-		this.player.body.setOffset(30, 5);
+		this.player.body.setSize(PLAYER_POSES.spawn.bodyWidth, PLAYER_POSES.spawn.bodyHeight);
+		this.player.body.setOffset(PLAYER_POSES.spawn.offsetX, PLAYER_POSES.spawn.offsetY);
 		this.player.setCollideWorldBounds(true);
 		this.player.setGravityY(800);
 		this.player.play("run");
@@ -240,27 +248,31 @@ export default class RunnerScene extends Phaser.Scene {
 			allowGravity: false,
 			immovable: true,
 		});
-		// Initial obstacle spawn - reduced delay for more difficulty
+		this.spawner = new ObstacleSpawner(this, this.obstacles, () => ({
+			speed: this.gameSpeed,
+			score: this.score,
+			negativeFilter: this.hasNegativeFilter,
+		}));
+
+		// Spawn obstacles on a loop; the progression timer tightens this delay over time.
 		this.obstacleTimer = this.time.addEvent({
-			delay: 1800,
-			callback: this.spawnObstacle,
-			callbackScope: this,
+			delay: GAMEPLAY.spawnDelay,
+			callback: () => this.spawner.spawn(),
 			loop: true,
 			paused: true,
 		});
 
-		// Difficulty progression every 15s - more frequent and aggressive
+		// Ramp up speed and spawn rate on each progression tick.
 		this.progressionTimer = this.time.addEvent({
-			delay: 15000,
+			delay: GAMEPLAY.progressionInterval,
 			paused: true,
 			callback: () => {
-				this.gameSpeed += 50; // Increased speed increment
-				const newDelay = Math.max(600, this.obstacleTimer.delay - 100); // More aggressive delay reduction
+				this.gameSpeed += GAMEPLAY.speedStep;
+				const newDelay = Math.max(GAMEPLAY.minSpawnDelay, this.obstacleTimer.delay - GAMEPLAY.spawnDelayStep);
 				this.obstacleTimer.remove(false);
 				this.obstacleTimer = this.time.addEvent({
 					delay: newDelay,
-					callback: this.spawnObstacle,
-					callbackScope: this,
+					callback: () => this.spawner.spawn(),
 					loop: true,
 				});
 			},
@@ -282,6 +294,17 @@ export default class RunnerScene extends Phaser.Scene {
 		this.showStartScreen();
 	}
 
+	/** Applies an animation and matching physics-body pose to the player in one call. */
+	private setPlayerPose(anim: string, pose: PlayerPose): void {
+		this.player.play(anim, true);
+		this.player.setOrigin(0.5, 1);
+		this.player.setScale(this.elementScale);
+		const body = this.player.body as Phaser.Physics.Arcade.Body;
+		body.setAllowGravity(true);
+		body.setSize(pose.bodyWidth, pose.bodyHeight);
+		body.setOffset(pose.offsetX, pose.offsetY);
+	}
+
 	update(time: number, delta: number) {
 		if (this.isGameOver || !this.isGameStarted) return;
 
@@ -296,7 +319,7 @@ export default class RunnerScene extends Phaser.Scene {
 			this.player.body?.touching.down &&
 			!this.isDucking
 		) {
-			this.player.setVelocityY(-180); // smaller initial jump
+			this.player.setVelocityY(GAMEPLAY.jumpVelocity);
 			this.jumpSound.play();
 			this.isJumping = true;
 			this.jumpHoldTime = 0;
@@ -306,30 +329,17 @@ export default class RunnerScene extends Phaser.Scene {
 		if (this.isJumping && (this.cursorSpace.isDown || this.cursorUp.isDown || this.input.activePointer.isDown)) {
 			this.jumpHoldTime += delta;
 			if (this.jumpHoldTime < this.maxJumpHold) {
-				this.player.setVelocityY(this.player.body.velocity.y - 12);
+				this.player.setVelocityY(this.player.body.velocity.y + GAMEPLAY.jumpHoldVelocity);
 			} else {
 				this.isJumping = false;
 			}
 		}
 
 		if (Math.abs(this.player.body.velocity.y) > 1) {
-			if (this.player.body.velocity.y < 0) {
-				this.player.play("jump_up", true);
-			} else {
-				this.player.play("jump_down", true);
-			}
-			this.player.setOrigin(0.5, 1);
-			(this.player.body as Phaser.Physics.Arcade.Body).setAllowGravity(true);
-			this.player.setScale(this.elementScale);
-			this.player.body.setSize(24, 32);
-			this.player.body.setOffset(12, 8);
+			const anim = this.player.body.velocity.y < 0 ? "jump_up" : "jump_down";
+			this.setPlayerPose(anim, PLAYER_POSES.upright);
 		} else if (!this.isDucking) {
-			this.player.play("run", true);
-			this.player.setOrigin(0.5, 1);
-			(this.player.body as Phaser.Physics.Arcade.Body).setAllowGravity(true);
-			this.player.setScale(this.elementScale);
-			this.player.body.setSize(24, 32);
-			this.player.body.setOffset(12, 8);
+			this.setPlayerPose("run", PLAYER_POSES.upright);
 		}
 
 		// Stop jump when key is released
@@ -339,30 +349,21 @@ export default class RunnerScene extends Phaser.Scene {
 
 		if (Phaser.Input.Keyboard.JustDown(this.cursorDown) && !this.isDucking && this.player.body?.touching.down) {
 			this.isDucking = true;
-			this.player.play("duck", true);
-			this.player.setOrigin(0.5, 1);
-			this.player.setScale(this.elementScale);
-			this.player.body.setSize(24, 16);
-			this.player.body.setOffset(12, 24);
+			this.setPlayerPose("duck", PLAYER_POSES.ducking);
 		}
 
 		// Stand (on key release)
 		if (Phaser.Input.Keyboard.JustUp(this.cursorDown) && this.isDucking) {
 			this.isDucking = false;
-			this.player.play("run", true);
-			this.player.setOrigin(0.5, 1);
-			(this.player.body as Phaser.Physics.Arcade.Body).setAllowGravity(true);
-			this.player.setScale(this.elementScale);
-			this.player.body.setSize(24, 32);
-			this.player.body.setOffset(12, 8);
+			this.setPlayerPose("run", PLAYER_POSES.upright);
 		}
 		// Update score
-		this.score += delta * 0.01;
+		this.score += delta * GAMEPLAY.scorePerMs;
 		const currentRoundedScore = Math.floor(this.score);
-		this.scoreText.setText(this.formatScore(Math.floor(currentRoundedScore)));
+		this.scoreText.setText(formatScore(currentRoundedScore));
 
-		// Day/night cycling every 500 points
-		const shouldBeNightMode = Math.floor(currentRoundedScore / 500) % 2 === 1;
+		// Day/night cycling.
+		const shouldBeNightMode = Math.floor(currentRoundedScore / GAMEPLAY.dayNightStep) % 2 === 1;
 		if (shouldBeNightMode && !this.isNightMode) {
 			this.switchToNightMode();
 		} else if (!shouldBeNightMode && this.isNightMode) {
@@ -370,8 +371,8 @@ export default class RunnerScene extends Phaser.Scene {
 		}
 
 		// Update milestone + blink
-		if (currentRoundedScore >= this.milestoneCheckpoint + 100) {
-			this.milestoneCheckpoint += 100;
+		if (currentRoundedScore >= this.milestoneCheckpoint + GAMEPLAY.milestoneStep) {
+			this.milestoneCheckpoint += GAMEPLAY.milestoneStep;
 			this.scoreSound.play();
 			this.tweens.add({
 				targets: this.scoreText,
@@ -396,51 +397,6 @@ export default class RunnerScene extends Phaser.Scene {
 			}
 			return null;
 		});
-	}
-
-	private spawnObstacle() {
-		// Initial phase: only ground obstacles for first 300 points
-		if (this.score < 300) {
-			this.spawnGroundObstacle();
-			return;
-		}
-
-		// After initial phase, use weighted random selection
-		const type = Phaser.Math.Between(0, 99);
-		if (type < 50) {
-			this.spawnGroundObstacle(); // 50%
-		} else if (type < 80) {
-			this.spawnFlyingObstacle(); // 30%
-		} else {
-			this.spawnMixedObstacle(); // 20%
-		}
-	}
-
-	private spawnGroundObstacle() {
-		const { width, height } = this.scale;
-
-		const isEarlyGame = this.score < 200;
-		const count = isEarlyGame ? 1 : Phaser.Math.Between(1, 2);
-		const spacing = 22;
-
-		for (let i = 0; i < count; i++) {
-			const hazardKey = Phaser.Math.RND.pick(["groundHazard1", "groundHazard2"]);
-			const obstacle = this.obstacles
-				.create(width + 20 + i * spacing, 0, hazardKey)
-				.setOrigin(0, 1)
-				.setDisplaySize(28, 17);
-			Math.random() > 0.5 ? obstacle.setScale(0.5) : obstacle.setScale(0.5, 1);
-
-			obstacle.setVelocityX(-this.gameSpeed);
-			obstacle.setImmovable(true);
-			obstacle.body.setAllowGravity(false);
-			// Fixed positioning to align with ground level
-			obstacle.setY(height - 22);
-
-			if (this.hasNegativeFilter) {
-				obstacle.setTint(0x0000ff);
-			}
-		}
 	}
 
 	private refreshWalletConnection() {
@@ -478,43 +434,6 @@ export default class RunnerScene extends Phaser.Scene {
 			.setOrigin(0.5, 0.5);
 	}
 
-	private spawnFlyingObstacle() {
-		const { width, height } = this.scale;
-
-		const obstacle = this.obstacles.create(width + 20, 0, "flyingHazard11").setDisplaySize(75, 29);
-		obstacle.play("flyingHazard_anim");
-
-		obstacle.setVelocityX(-this.gameSpeed);
-		obstacle.setImmovable(true);
-		obstacle.setScale(0.5);
-		obstacle.body.setAllowGravity(false);
-		obstacle.setY(height - 55);
-		obstacle.setFlipX(true);
-	}
-
-	private spawnMixedObstacle() {
-		const { width, height } = this.scale;
-		const type = Phaser.Math.Between(0, 1);
-		const hazardKey = type === 0 ? "groundHazard1" : "flyingHazard11";
-		const obstacle = this.obstacles.create(width + 20, 0, hazardKey).setDisplaySize(40, 40);
-		obstacle.setVelocityX(-this.gameSpeed);
-		obstacle.setImmovable(true);
-		obstacle.setScale(0.5);
-
-		obstacle.body.setAllowGravity(false);
-		obstacle.setY(type === 0 ? height - 22 : height - 55);
-		if (hazardKey === "flyingHazard11") {
-			obstacle.play("flyingHazard_anim"); // Fixed: Add animation for flying obstacles
-			obstacle.setFlipX(true);
-		} else {
-			Math.random() > 0.5 ? obstacle.setScale(0.5) : obstacle.setScale(0.5, 1);
-		}
-
-		if (this.hasNegativeFilter) {
-			obstacle.setTint(0x0000ff);
-		}
-	}
-
 	private handleGameOver = () => {
 		if (this.isGameOver) return;
 		this.isGameOver = true;
@@ -531,7 +450,7 @@ export default class RunnerScene extends Phaser.Scene {
 
 		if (this.score > this.hiScore) {
 			this.hiScore = Math.floor(this.score);
-			this.hiScoreText.setText(this.formatScore(this.hiScore));
+			this.hiScoreText.setText(formatScore(this.hiScore));
 			localStorage.setItem("hiScore", this.hiScore.toString());
 		}
 		this.gameOverSound.play();
@@ -549,7 +468,7 @@ export default class RunnerScene extends Phaser.Scene {
 		}
 	};
 
-	private currentContainer: Phaser.GameObjects.Container;
+	private currentContainer?: Phaser.GameObjects.Container;
 
 	private addLoadingSpinner() {
 		// Create loading spinner with shapes
@@ -597,10 +516,6 @@ export default class RunnerScene extends Phaser.Scene {
 				repeat: -1,
 			});
 		});
-	}
-
-	private formatScore(score: number): string {
-		return score.toString().padStart(5, "0");
 	}
 
 	private showStartScreen(): void {
@@ -695,7 +610,7 @@ export default class RunnerScene extends Phaser.Scene {
 
 		// Score text (top-right)
 		this.scoreText = this.add
-			.bitmapText(width - 20, 13, "font2bitmap", this.formatScore(this.score), 10)
+			.bitmapText(width - 20, 13, "font2bitmap", formatScore(this.score), 10)
 			.setOrigin(1, 0)
 			.setDepth(2)
 			.setTint(0x222222);
@@ -711,7 +626,7 @@ export default class RunnerScene extends Phaser.Scene {
 			.setTint(0x666666);
 
 		this.hiScoreText = this.add
-			.bitmapText(width - 150, 13, "font2bitmap", this.formatScore(this.hiScore), 10)
+			.bitmapText(width - 150, 13, "font2bitmap", formatScore(this.hiScore), 10)
 			.setDepth(2)
 			.setTint(0x222222);
 
@@ -801,7 +716,6 @@ export default class RunnerScene extends Phaser.Scene {
 	private showRewardPopup(): void {
 		const { width, height } = this.scale;
 
-		const popupWidth = 300;
 		const popupHeight = 150;
 		const y = height / 2 - popupHeight / 2;
 
@@ -858,7 +772,7 @@ export default class RunnerScene extends Phaser.Scene {
 		if (this.isGameOver || !this.isGameStarted) return;
 
 		if (this.player.body?.touching.down && !this.isDucking) {
-			this.player.setVelocityY(-250);
+			this.player.setVelocityY(GAMEPLAY.touchJumpVelocity);
 			this.jumpSound.play();
 			this.isJumping = true;
 			this.jumpHoldTime = 0;

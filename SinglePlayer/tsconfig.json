@@ -1,19 +1,19 @@
 {
-  "compilerOptions": {
-	"target": "ES2022",
-    "module": "ESNext",
-	"skipLibCheck": true,
-   	"moduleResolution": "bundler",
-	"allowImportingTsExtensions": true,
-	"allowJs": true,
-	"resolveJsonModule": true,
-	"isolatedModules": true,
-	"noEmit": true,
-	"allowSyntheticDefaultImports": true,
-    "outDir": "dist",
-    "paths": {
-		"@game/*": ["./src/game/*"],
-    },
-  },
-	"include": ["src"],
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"skipLibCheck": true,
+		"moduleResolution": "bundler",
+		"allowImportingTsExtensions": true,
+		"allowJs": true,
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"noEmit": true,
+		"allowSyntheticDefaultImports": true,
+		"outDir": "dist",
+		"paths": {
+			"@game/*": ["./src/game/*"]
+		}
+	},
+	"include": ["src"]
 }

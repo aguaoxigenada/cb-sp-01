@@ -16,12 +16,12 @@ The game is designed to run **standalone in the browser** or **embedded in a hos
 
 ## Tech stack
 
-| | |
-|---|---|
-| Engine | Phaser `^3.88` |
-| Language | TypeScript `^5.7` |
-| Bundler | Vite `^6.3` |
-| Node | `>=24`, npm `>=11` |
+|          |                    |
+| -------- | ------------------ |
+| Engine   | Phaser `^3.88`     |
+| Language | TypeScript `^5.7`  |
+| Bundler  | Vite `^6.3`        |
+| Node     | `>=24`, npm `>=11` |
 
 ## Getting started
 
@@ -35,18 +35,18 @@ Vite prints a local URL (default `http://localhost:5173/`, or the next free port
 
 ### Scripts
 
-| Command | Description |
-|---|---|
-| `npm run dev` | Start the dev server with hot-reload |
-| `npm run build` | Type-check-clean production build to `dist/` |
-| `npm run preview` | Serve the built `dist/` locally |
+| Command           | Description                                  |
+| ----------------- | -------------------------------------------- |
+| `npm run dev`     | Start the dev server with hot-reload         |
+| `npm run build`   | Type-check-clean production build to `dist/` |
+| `npm run preview` | Serve the built `dist/` locally              |
 
 ## Controls
 
-| Action | Keyboard | Touch |
-|---|---|---|
-| Jump (hold to jump higher) | `Space` / `↑` | Tap |
-| Duck | `↓` | — |
+| Action                     | Keyboard      | Touch |
+| -------------------------- | ------------- | ----- |
+| Jump (hold to jump higher) | `Space` / `↑` | Tap   |
+| Duck                       | `↓`           | —     |
 
 ## Project structure
 
@@ -72,8 +72,8 @@ The game communicates with an embedding page through `EventBus` and `window` eve
 
 ```js
 window.phaserBridge.send({
-  type: "event-authenticate",      // see EventTypes in eventTypes.ts
-  payload: { isAuthenticated: true },
+	type: "event-authenticate", // see EventTypes in eventTypes.ts
+	payload: { isAuthenticated: true },
 });
 ```
 

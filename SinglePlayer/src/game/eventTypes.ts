@@ -12,13 +12,23 @@ export enum EventTypes {
 	EVENT_CONNECT_WALLET = "event-connect-wallet",
 }
 
-export class CBEvent extends Event {
-	private readonly timestamp: number;
-	constructor(
-		public type: EventTypes,
-		public payload?: any,
-	) {
-		super(type);
-		this.timestamp = Date.now();
-	}
+// Payloads for messages the host page pushes into the game.
+export interface AuthenticatePayload {
+	isAuthenticated: boolean;
 }
+
+export interface UnlockGamePayload {
+	isAllowedToPlay: boolean;
+	baseFee?: number;
+}
+
+export interface ReceiveRewardPayload {
+	reward: number;
+}
+
+// Discriminated union of every message the host can send in via window.phaserBridge.send().
+// Switching on `type` narrows `payload` to the matching shape.
+export type ExternalMessage =
+	| { type: EventTypes.EVENT_AUTHENTICATE; payload: AuthenticatePayload }
+	| { type: EventTypes.EVENT_UNLOCK_GAME; payload: UnlockGamePayload }
+	| { type: EventTypes.EVENT_RECEIVE_REWARD; payload: ReceiveRewardPayload };

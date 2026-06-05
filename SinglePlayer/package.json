@@ -1,32 +1,39 @@
 {
-  "name": "cb-sp-01",
-  "version": "1.0.0",
-  "main": "index.js",
-  "type": "module",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
-  "dependencies": {
-    "phaser": "^3.88.2"
-  },
-  "devDependencies": {
-    "globals": "^15.14.0",
-    "prettier": "^3.6.2",
-    "typescript": "^5.7.3",
-    "vite": "^6.3.5",
-    "vite-plugin-node-polyfills": "^0.23.0",
-    "vite-plugin-static-copy": "^3.1.4",
-    "vite-tsconfig-paths": "^5.1.4"
-  },
-  "engines": {
-    "node": ">=24.0.0",
-    "npm": ">=11.0.0"
-  }
+	"name": "cb-sp-01",
+	"version": "1.0.0",
+	"main": "index.js",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "tsc --noEmit && vite build",
+		"preview": "vite preview",
+		"typecheck": "tsc --noEmit",
+		"lint": "eslint .",
+		"format": "prettier --write .",
+		"test": "vitest run"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"description": "",
+	"dependencies": {
+		"phaser": "^3.88.2"
+	},
+	"devDependencies": {
+		"@eslint/js": "^10.0.1",
+		"eslint": "^10.4.1",
+		"globals": "^15.14.0",
+		"prettier": "^3.6.2",
+		"typescript": "^5.7.3",
+		"typescript-eslint": "^8.60.1",
+		"vite": "^6.3.5",
+		"vite-plugin-node-polyfills": "^0.23.0",
+		"vite-plugin-static-copy": "^3.1.4",
+		"vite-tsconfig-paths": "^5.1.4",
+		"vitest": "^4.1.8"
+	},
+	"engines": {
+		"node": ">=24.0.0",
+		"npm": ">=11.0.0"
+	}
 }

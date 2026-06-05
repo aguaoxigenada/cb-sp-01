@@ -3,12 +3,12 @@ import RunnerScene from "./runner/scenes/RunnerScene";
 import LoadingScene from "./runner/scenes/LoadingScene";
 import BootScene from "./runner/scenes/BootScene";
 import { EventBus } from "./EventBus";
-import { CBEventSource } from "./eventTypes";
+import { CBEventSource, ExternalMessage } from "./eventTypes";
 
 declare global {
 	interface Window {
 		phaserBridge: {
-			send: (msg: any) => void;
+			send: (msg: ExternalMessage) => void;
 		};
 	}
 }
